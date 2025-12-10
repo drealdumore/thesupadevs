@@ -5,9 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Resource, Category } from "@/lib/types/database";
 import { motion } from "framer-motion";
 import {
-  Zap,
   ArrowRight,
-  Search,
   Code,
   Server,
   Layers,
@@ -18,14 +16,20 @@ import {
   TrendingUp,
   Plus,
   Sparkles,
-  X,
+  Search,
 } from "lucide-react";
 import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { AddResourceModal } from "@/components/add-resource-modal";
 import { Button } from "@/components/ui/button";
 import { ResourceCard } from "@/components/resource-card";
+import { AddResourceModal } from "@/components/add-resource-modal";
 import { useRef, useState, useEffect } from "react";
+
+// Import new components
+import { HeroSection } from "@/components/home/HeroSection";
+import { SearchBar } from "@/components/home/SearchBar";
+import { CategoryFilters } from "@/components/home/CategoryFilters";
+import { RecentlyAdded } from "@/components/home/RecentlyAdded";
+import { FooterCTA } from "@/components/home/FooterCTA";
 
 type CategoryData = {
   id: string;
@@ -171,28 +175,7 @@ export default function Home() {
 
   return (
     <div className="container py-16 space-y-8 md:py-24 md:space-y-12">
-      {/* Hero Section */}
-      <div className="flex flex-col border-b border-border items-center gap-12 lg:flex-row lg:gap-24">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex-1 text-left"
-        >
-          <h1 className="mb-6 font-heading text-4xl font-bold tracking-tight text-foreground md:text-6xl">
-            The curated{" "}
-            <span className="inline-flex shrink-0 rotate-3 items-center justify-center rounded-xl bg-zinc-900 p-2 align-middle text-white dark:bg-white dark:text-black">
-              <Zap className="h-6 w-6" fill="currentColor" />
-            </span>{" "}
-            shelf <br className="hidden lg:block" />
-            for developers
-          </h1>
-          <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground lg:mx-0">
-            A comprehensive collection of buttons, cards, tools, and resources
-            for frontend and backend.
-          </p>
-        </motion.div>
-      </div>
+      <HeroSection />
 
       {/* Stats Section */}
       {/* {!loading && (
@@ -218,99 +201,20 @@ export default function Home() {
         </div>
       )} */}
 
-      {/* Search Bar */}
-      <motion.div
-        className="max-w-2xl mx-auto"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.3 }}
-      >
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            ref={searchInputRef}
-            type="text"
-            placeholder="Search resources... (Press / to focus)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10 h-12"
-          />
-          {searchQuery && (
-            <motion.button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Clear search"
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              <X className="h-4 w-4" />
-            </motion.button>
-          )}
-        </div>
-      </motion.div>
+      <SearchBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        searchInputRef={searchInputRef}
+      />
 
-      {/* Category Filter Buttons */}
-      <motion.div
-        className="space-y-6"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.4 }}
-      >
-        <div className="flex flex-wrap justify-center gap-2 md:gap-3">
-          <motion.button
-            onClick={() => setActiveCategory("All")}
-            className={`rounded-full border px-5 py-3 text-sm font-semibold tracking-wide transition-all duration-200 md:px-6 md:py-2 md:text-sm flex items-center gap-2 min-h-[44px] md:min-h-[36px] ${
-              activeCategory === "All"
-                ? "border-foreground bg-foreground text-background shadow-lg"
-                : "border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted/50 hover:shadow-md"
-            }`}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.3, delay: 0.5 }}
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            All
-          </motion.button>
-          {categories.map((category, index) => {
-            const Icon = categoryIcons[category.name] || Code;
-            const count = resources.filter(
-              (r) => r.category === category.name
-            ).length;
-            return (
-              <motion.button
-                key={category.id}
-                onClick={() =>
-                  activeCategory === "All"
-                    ? scrollToCategory(category.name)
-                    : setActiveCategory(category.name)
-                }
-                className={`rounded-full border px-5 py-3 text-sm font-semibold tracking-wide transition-all duration-200 md:px-6 md:py-2 md:text-sm flex items-center gap-2 min-h-[44px] md:min-h-[36px] relative ${
-                  activeCategory === category.name
-                    ? "border-foreground bg-foreground text-background shadow-lg"
-                    : "border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted/50 hover:shadow-md"
-                }`}
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3, delay: 0.5 + (index + 1) * 0.05 }}
-                whileHover={{ scale: 1.05, y: -2 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Icon className="h-4 w-4 md:h-3 md:w-3" />
-                {category.name}
-                {count > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary/20 text-primary rounded-full">
-                    {count}
-                  </span>
-                )}
-              </motion.button>
-            );
-          })}
-        </div>
-      </motion.div>
+      <CategoryFilters
+        categories={categories}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
+        onScrollToCategory={scrollToCategory}
+        resources={resources}
+        categoryIcons={categoryIcons}
+      />
 
       {/* Subcategory Cards */}
       <div className="space-y-8">
@@ -553,40 +457,11 @@ export default function Home() {
         )}
       </div>
 
-      {/* Recently Added Section */}
       {!loading && !searchQuery && recentResources.length > 0 && (
-        <div className="space-y-6 pt-8 border-t">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <h2 className="text-2xl font-semibold font-heading">
-                Recently Added
-              </h2>
-            </div>
-          </div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {recentResources.map((resource) => (
-              <ResourceCard key={resource.id} resource={resource} />
-            ))}
-          </div>
-        </div>
+        <RecentlyAdded recentResources={recentResources} />
       )}
 
-      {/* Footer CTA */}
-      <div className="pt-12 text-center space-y-4 border-t">
-        <h2 className="font-heading text-2xl font-semibold">
-          Can't find what you need?
-        </h2>
-        <p className="text-muted-foreground max-w-md mx-auto">
-          Help grow the library by submitting your favorite developer resources
-        </p>
-        <AddResourceModal>
-          <Button className="gap-2 rounded-full">
-            <Plus className="h-4 w-4" />
-            Submit a Resource
-          </Button>
-        </AddResourceModal>
-      </div>
+      <FooterCTA />
     </div>
   );
 }

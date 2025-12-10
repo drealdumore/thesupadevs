@@ -17,9 +17,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Build category-subcategory mapping
-    const categoryMap = categories.reduce((acc: Record<string, string[]>, cat: any) => {
-      const catSubcategories = subcategories?.filter((sub: any) => sub.category_id === cat.id) || [];
-      acc[cat.name] = catSubcategories.map((sub: any) => sub.name);
+    const categoryMap = categories.reduce((acc: Record<string, string[]>, cat: { id: string; name: string }) => {
+      const catSubcategories = subcategories?.filter((sub: { category_id: string }) => sub.category_id === cat.id) || [];
+      acc[cat.name] = catSubcategories.map((sub: { name: string }) => sub.name);
       return acc;
     }, {});
 
@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
       const resource = resources[i];
       try {
         // Build detailed category info
-        const categoryInfo = categories.map((cat: any) => {
+        const categoryInfo = categories.map((cat: { name: string }) => {
           const subs = categoryMap[cat.name] || [];
           return subs.length > 0 ? `${cat.name} (${subs.join(", ")})` : cat.name;
         }).join(", ");

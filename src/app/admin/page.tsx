@@ -66,6 +66,14 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Category } from "@/lib/types/database";
 
+// Import new components
+import { LoadingScreen } from "@/components/admin/LoadingScreen";
+import { LoginForm } from "@/components/admin/LoginForm";
+import { AdminHeader } from "@/components/admin/AdminHeader";
+import { FilterControls } from "@/components/admin/FilterControls";
+import { ResourceCard } from "@/components/admin/ResourceCard";
+import { BulkCategorizationModal } from "@/components/admin/BulkCategorizationModal";
+
 type CategoryData = {
   id: string;
   name: string;
@@ -253,7 +261,7 @@ export default function AdminPage() {
 
       if (error) throw error;
       setAllResources(data || []);
-      setLoadingProgress(70);
+      setLoadingProgress(90);
     } catch (error) {
       console.error("Error fetching resources:", error);
     } finally {
@@ -653,11 +661,11 @@ export default function AdminPage() {
       const data = await response.json();
       if (data.suggestions) {
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        const changes = data.suggestions.filter((s: any) => s.suggestedCategory !== s.currentCategory).length;
+        const changes = data.suggestions.filter((s: { suggestedCategory: string; currentCategory: string }) => s.suggestedCategory !== s.currentCategory).length;
         console.log(`✅ Batch ${batchNum} completed in ${duration}s - ${changes} changes found`);
         
         setCategorySuggestions(data.suggestions);
-        setSelectedSuggestions(new Set(data.suggestions.filter((s: any) => s.suggestedCategory !== s.currentCategory).map((s: any) => s.id)));
+        setSelectedSuggestions(new Set(data.suggestions.filter((s: { suggestedCategory: string; currentCategory: string; id: string }) => s.suggestedCategory !== s.currentCategory).map((s: { id: string }) => s.id)));
       }
     } catch (error) {
       console.error("❌ Error categorizing batch:", error);
@@ -719,7 +727,7 @@ export default function AdminPage() {
   }
 
   function applySelectedSuggestions() {
-    const selectedSuggestionsList = categorySuggestions.filter((s: any) => 
+    const selectedSuggestionsList = categorySuggestions.filter((s) => 
       selectedSuggestions.has(s.id) && s.suggestedCategory !== s.currentCategory
     );
     applyCategorySuggestions(selectedSuggestionsList);
@@ -736,680 +744,159 @@ export default function AdminPage() {
   }
 
   if (loading) {
-    return (
-      <div className="container py-8 max-w-7xl min-h-[calc(100vh-4rem)]">
-        {/* Enhanced Loading Screen */}
-        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5 }}
-            className="text-center space-y-6"
-          >
-            <div className="relative">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center"
-              >
-                <Settings className="h-8 w-8 text-primary" />
-              </motion.div>
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="absolute inset-0 w-16 h-16 mx-auto bg-primary/5 rounded-full"
-              />
-            </div>
-            
-            <div className="space-y-3">
-              <h2 className="font-heading text-2xl font-bold">Loading Admin Dashboard</h2>
-              <motion.p
-                key={loadingStage}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="text-muted-foreground"
-              >
-                {loadingStage}...
-              </motion.p>
-            </div>
-            
-            <div className="w-80 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="font-medium">{loadingStage}</span>
-                <span className="text-muted-foreground">{loadingProgress}%</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <motion.div
-                  className="bg-primary h-2 rounded-full"
-                  initial={{ width: 0 }}
-                  animate={{ width: `${loadingProgress}%` }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                />
-              </div>
-            </div>
-          </motion.div>
-        </div>
-        
-        {/* Skeleton Dashboard */}
-        <div className="space-y-8 opacity-30">
-          {/* Header Skeleton */}
-          <div className="flex justify-between items-center">
-            <div className="space-y-3">
-              <div className="h-8 bg-muted rounded w-64 animate-pulse" />
-              <div className="h-4 bg-muted rounded w-48 animate-pulse" />
-              <div className="flex gap-4">
-                <div className="h-3 bg-muted rounded w-20 animate-pulse" />
-                <div className="h-3 bg-muted rounded w-24 animate-pulse" />
-              </div>
-            </div>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-9 bg-muted rounded w-24 animate-pulse" />
-              ))}
-            </div>
-          </div>
-          
-          {/* Filters Skeleton */}
-          <Card className="p-6">
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <div className="h-10 bg-muted rounded flex-1 animate-pulse" />
-                <div className="h-10 bg-muted rounded w-48 animate-pulse" />
-                <div className="h-10 bg-muted rounded w-24 animate-pulse" />
-              </div>
-              <div className="flex justify-between">
-                <div className="flex gap-2">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-8 bg-muted rounded w-20 animate-pulse" />
-                  ))}
-                </div>
-                <div className="h-4 bg-muted rounded w-32 animate-pulse" />
-              </div>
-            </div>
-          </Card>
-          
-          {/* Resource Cards Skeleton */}
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="p-6">
-                <div className="flex gap-4">
-                  <div className="w-4 h-4 bg-muted rounded animate-pulse" />
-                  <div className="w-20 h-20 bg-muted rounded animate-pulse" />
-                  <div className="flex-1 space-y-3">
-                    <div className="flex justify-between">
-                      <div className="h-5 bg-muted rounded w-48 animate-pulse" />
-                      <div className="flex gap-2">
-                        <div className="h-5 bg-muted rounded w-16 animate-pulse" />
-                        <div className="h-5 bg-muted rounded w-20 animate-pulse" />
-                      </div>
-                    </div>
-                    <div className="h-4 bg-muted rounded w-full animate-pulse" />
-                    <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
-                    <div className="flex gap-2">
-                      {[1, 2, 3, 4, 5].map((j) => (
-                        <div key={j} className="h-8 bg-muted rounded w-16 animate-pulse" />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingScreen loadingStage={loadingStage} loadingProgress={loadingProgress} />;
   }
 
   if (!isAuthenticated) {
     return (
-      <div className="container max-w-md py-16">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
-          <Card className="border-2 p-8">
-            <h1 className="font-display text-3xl font-bold mb-2">
-              Admin Login
-            </h1>
-            <p className="text-muted-foreground mb-6">
-              Sign in to manage resources
-            </p>
-
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="email" className="text-sm font-medium">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  className="w-full px-3 py-2 border rounded-md bg-background"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">
-                  Password
-                </label>
-                <input
-                  id="password"
-                  type="password"
-                  className="w-full px-3 py-2 border rounded-md bg-background"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-              </div>
-
-              <Button type="submit" className="w-full" disabled={loggingIn}>
-                {loggingIn ? "Signing in..." : "Sign In"}
-              </Button>
-            </form>
-          </Card>
-        </motion.div>
-      </div>
+      <LoginForm
+        email={email}
+        password={password}
+        loggingIn={loggingIn}
+        onEmailChange={setEmail}
+        onPasswordChange={setPassword}
+        onSubmit={handleLogin}
+      />
     );
   }
 
   return (
     <div className="container py-8 max-w-7xl overflow-x-hidden">
-      {/* Header with Analytics */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex-1"
-        >
-          <h1 className="mb-2 font-heading text-2xl sm:text-4xl font-bold tracking-tight text-foreground lg:text-5xl">
-            Admin Dashboard
-          </h1>
-          <p className="mb-4 text-base sm:text-lg text-muted-foreground">
-            Manage and curate developer resources
-          </p>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <AdminHeader
+          counts={counts}
+          onShowAnalytics={() => setShowAnalytics(true)}
+          onShowCategoryManager={() => setShowCategoryManager(true)}
+          onShowBulkCategorize={() => setShowBulkCategorize(true)}
+          onLogout={handleLogout}
+        />
+      </motion.div>
 
-          {/* Quick Stats */}
-          <div className="flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>{counts.approved} Approved</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-              <span>{counts.pending} Pending</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="h-3 w-3" />
-              <span>Last updated: {new Date().toLocaleDateString()}</span>
-            </div>
-          </div>
-        </motion.div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setShowAnalytics(true)}
-            className="gap-2"
-          >
-            <BarChart3 className="h-4 w-4" />
-            Analytics
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setShowCategoryManager(true)}
-            className="gap-2"
-          >
-            <Settings className="h-4 w-4" />
-            Categories
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => setShowBulkCategorize(true)}
-            className="gap-2"
-          >
-            <WandSparkles className="h-4 w-4" />
-            AI Categorize
-          </Button>
-          <Button variant="outline" onClick={handleLogout} className="gap-2">
-            <LogOut className="h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </div>
-
-      {/* Enhanced Search and Filters */}
-      <Card className="p-6 mb-6">
-        <div className="space-y-4">
-          {/* Search and Category Filter */}
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search resources by name, description, URL, or tags..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Select
-              value={selectedCategory}
-              onValueChange={(value) =>
-                setSelectedCategory(value as Category | "all")
-              }
-            >
-              <SelectTrigger className="w-full lg:w-48">
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Sort Controls */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <ArrowUpDown className="h-4 w-4" />
-                  Sort
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSortField("created_at");
-                    setSortOrder("desc");
-                  }}
-                >
-                  Newest First
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSortField("created_at");
-                    setSortOrder("asc");
-                  }}
-                >
-                  Oldest First
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSortField("name");
-                    setSortOrder("asc");
-                  }}
-                >
-                  Name A-Z
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSortField("category");
-                    setSortOrder("asc");
-                  }}
-                >
-                  Category A-Z
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setSortField("status");
-                    setSortOrder("asc");
-                  }}
-                >
-                  Status
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Status Filters and Bulk Actions */}
-          <div className="flex flex-col sm:flex-row justify-between gap-4">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant={filter === "all" ? "default" : "outline"}
-                onClick={() => setFilter("all")}
-                className="text-xs sm:text-sm"
-              >
-                All ({counts.all})
-              </Button>
-              <Button
-                variant={filter === "pending" ? "default" : "outline"}
-                onClick={() => setFilter("pending")}
-                className="text-xs sm:text-sm"
-              >
-                Pending ({counts.pending})
-              </Button>
-              <Button
-                variant={filter === "approved" ? "default" : "outline"}
-                onClick={() => setFilter("approved")}
-                className="text-xs sm:text-sm"
-              >
-                Approved ({counts.approved})
-              </Button>
-            </div>
-
-            {/* Bulk Actions */}
-            {selectedResources.size > 0 && (
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary" className="px-3 py-1">
-                  {selectedResources.size} selected
-                </Badge>
-                <Button
-                  size="sm"
-                  onClick={() => handleBulkOperation("approve")}
-                  disabled={bulkOperating}
-                  className="gap-1"
-                >
-                  <Check className="h-3 w-3" />
-                  Approve All
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleBulkOperation("pending")}
-                  disabled={bulkOperating}
-                  className="gap-1"
-                >
-                  <Clock className="h-3 w-3" />
-                  Pending
-                </Button>
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={confirmBulkDelete}
-                  disabled={bulkOperating}
-                  className="gap-1"
-                >
-                  <Trash2 className="h-3 w-3" />
-                  Delete
-                </Button>
-                <Button size="sm" variant="ghost" onClick={clearSelection}>
-                  Clear
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Selection Controls */}
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div className="flex items-center gap-4">
-              <span>
-                Showing {filteredAndSortedResources.length} of{" "}
-                {allResources.length} resources
-              </span>
-              {filteredAndSortedResources.length > 0 && (
-                <Button variant="ghost" size="sm" onClick={selectAllVisible}>
-                  Select All Visible
-                </Button>
-              )}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={fetchResources}
-              className="gap-1"
-            >
-              <RefreshCw className="h-3 w-3" />
-              Refresh
-            </Button>
-          </div>
-        </div>
-      </Card>
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <FilterControls
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          selectedCategory={selectedCategory}
+          onCategoryChange={setSelectedCategory}
+          categories={categories}
+          filter={filter}
+          onFilterChange={setFilter}
+          counts={counts}
+          selectedResources={selectedResources}
+          bulkOperating={bulkOperating}
+          onBulkOperation={handleBulkOperation}
+          onClearSelection={clearSelection}
+          onSelectAllVisible={selectAllVisible}
+          onConfirmBulkDelete={confirmBulkDelete}
+          onRefresh={fetchResources}
+          filteredCount={filteredAndSortedResources.length}
+          totalCount={allResources.length}
+          onSortChange={(field, order) => {
+            setSortField(field);
+            setSortOrder(order);
+          }}
+        />
+      </motion.div>
 
       {/* Resources List */}
-      <div className="space-y-4">
-        {filteredAndSortedResources.length === 0 ? (
-          <Card className="border-2 p-12 text-center">
-            <div className="mx-auto w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mb-4">
-              <Search className="h-6 w-6 text-muted-foreground" />
-            </div>
-            <p className="text-muted-foreground mb-2">No resources found</p>
-            <p className="text-sm text-muted-foreground">
-              Try adjusting your search or filters
-            </p>
-          </Card>
-        ) : (
-          filteredAndSortedResources.map((resource, index) => (
+      <motion.div 
+        className="space-y-4"
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      >
+        <AnimatePresence mode="wait">
+          {filteredAndSortedResources.length === 0 ? (
             <motion.div
-              key={resource.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.02 }}
+              key="no-results"
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: -20 }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             >
-              <Card
-                className={`border-2 p-4 sm:p-6 hover:shadow-md transition-all overflow-hidden ${
-                  selectedResources.has(resource.id)
-                    ? "ring-2 ring-primary"
-                    : ""
-                }`}
-              >
-                <div className="flex gap-4 min-w-0">
-                  {/* Selection Checkbox */}
-                  <div className="flex-shrink-0 pt-1">
-                    <Checkbox
-                      checked={selectedResources.has(resource.id)}
-                      onCheckedChange={() =>
-                        toggleResourceSelection(resource.id)
-                      }
-                    />
-                  </div>
-
-                  {/* Image Preview */}
-                  <div className="flex-shrink-0">
-                    <div className="relative group">
-                      {resource.image_url ? (
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg overflow-hidden bg-muted">
-                          <img
-                            src={resource.image_url}
-                            alt={resource.name}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.currentTarget.style.display = "none";
-                              (e.currentTarget
-                                .nextElementSibling as HTMLElement)!.style.display =
-                                "flex";
-                            }}
-                          />
-                          <div
-                            className="w-full h-full bg-muted/30 flex items-center justify-center"
-                            style={{ display: "none" }}
-                          >
-                            <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-lg bg-muted/30 flex items-center justify-center">
-                          <ImageIcon className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
-                        </div>
-                      )}
-
-                      {/* Re-scrape button */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 text-white"
-                        onClick={() => rescrapeImage(resource)}
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-2 mb-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-2">
-                          <h3 className="font-semibold text-base sm:text-lg truncate">
-                            {resource.name}
-                          </h3>
-                          <div className="flex gap-2">
-                            <Badge
-                              variant={
-                                resource.status === "approved"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className="self-start"
-                            >
-                              {resource.status}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {resource.category}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                          {resource.description}
-                        </p>
-
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-xs text-muted-foreground mb-3">
-                          <div className="flex items-center gap-2">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(resource.created_at).toLocaleDateString()}
-                          </div>
-                          <span className="hidden sm:inline">•</span>
-                          <a
-                            href={resource.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="hover:text-foreground transition-colors truncate block max-w-xs"
-                          >
-                            {resource.url}
-                          </a>
-                        </div>
-
-                        {/* Tags */}
-                        {resource.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {resource.tags.slice(0, 4).map((tag) => (
-                              <Badge
-                                key={tag}
-                                variant="outline"
-                                className="text-xs"
-                              >
-                                <Tag className="h-2 w-2 mr-1" />
-                                {tag}
-                              </Badge>
-                            ))}
-                            {resource.tags.length > 4 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{resource.tags.length - 4} more
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openEditModal(resource)}
-                        className="gap-1 text-xs"
-                      >
-                        <Edit className="h-3 w-3" />
-                        <span className="hidden sm:inline">Edit</span>
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowResourceDetails(resource)}
-                        className="gap-1 text-xs"
-                      >
-                        <Eye className="h-3 w-3" />
-                        <span className="hidden sm:inline">Details</span>
-                      </Button>
-
-                      {resource.status === "pending" ? (
-                        <Button
-                          size="sm"
-                          onClick={() =>
-                            updateResourceStatus(resource.id, "approved")
-                          }
-                          className="gap-1 text-xs"
-                        >
-                          <Check className="h-3 w-3" />
-                          <span className="hidden sm:inline">Approve</span>
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            updateResourceStatus(resource.id, "pending")
-                          }
-                          className="gap-1 text-xs"
-                        >
-                          <Clock className="h-3 w-3" />
-                          <span className="hidden sm:inline">Pending</span>
-                        </Button>
-                      )}
-
-                      <Button size="sm" variant="outline" asChild>
-                        <a
-                          href={resource.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="gap-1 text-xs"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          <span className="hidden sm:inline">Visit</span>
-                        </a>
-                      </Button>
-
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="gap-1 text-xs"
-                          >
-                            <MoreHorizontal className="h-3 w-3" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem
-                            onClick={() =>
-                              navigator.clipboard.writeText(resource.url)
-                            }
-                          >
-                            <Copy className="h-3 w-3 mr-2" />
-                            Copy URL
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => rescrapeImage(resource)}
-                          >
-                            <RefreshCw className="h-3 w-3 mr-2" />
-                            Re-scrape Image
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => confirmDeleteResource(resource)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  </div>
-                </div>
+              <Card className="border-2 p-12 text-center">
+                <motion.div 
+                  className="mx-auto w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mb-4"
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ 
+                    duration: 0.8, 
+                    delay: 0.3, 
+                    type: "spring", 
+                    stiffness: 200, 
+                    damping: 15 
+                  }}
+                >
+                  <Search className="h-6 w-6 text-muted-foreground" />
+                </motion.div>
+                <motion.p 
+                  className="text-muted-foreground mb-2"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  No resources found
+                </motion.p>
+                <motion.p 
+                  className="text-sm text-muted-foreground"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  Try adjusting your search or filters
+                </motion.p>
               </Card>
             </motion.div>
-          ))
-        )}
-      </div>
+          ) : (
+            <motion.div
+              key="results"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+              className="space-y-4"
+            >
+              {filteredAndSortedResources.map((resource, index) => (
+                <motion.div
+                  key={resource.id}
+                  initial={{ opacity: 0, y: 30, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{
+                    duration: 0.6,
+                    delay: index * 0.05,
+                    ease: [0.16, 1, 0.3, 1]
+                  }}
+                  whileHover={{ 
+                    scale: 1.02, 
+                    y: -4,
+                    transition: { duration: 0.2, ease: "easeOut" }
+                  }}
+                >
+                  <ResourceCard
+                    resource={resource}
+                    index={index}
+                    isSelected={selectedResources.has(resource.id)}
+                    onToggleSelection={toggleResourceSelection}
+                    onEdit={openEditModal}
+                    onShowDetails={setShowResourceDetails}
+                    onUpdateStatus={updateResourceStatus}
+                    onConfirmDelete={confirmDeleteResource}
+                    onRescrapeImage={rescrapeImage}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
 
       {/* Edit Resource Modal */}
       <SimpleKitModal
@@ -1934,216 +1421,22 @@ export default function AdminPage() {
         </SimpleKitModalContent>
       </SimpleKitModal>
 
-      {/* Bulk Categorization Modal */}
-      <SimpleKitModal
+      <BulkCategorizationModal
         open={showBulkCategorize}
         onOpenChange={setShowBulkCategorize}
-      >
-        <SimpleKitModalContent>
-          <SimpleKitModalHeader>
-            <SimpleKitModalTitle>AI Bulk Categorization</SimpleKitModalTitle>
-            <p className="text-sm text-muted-foreground text-center mt-2">
-              Use AI to analyze and suggest better categories for your resources
-            </p>
-          </SimpleKitModalHeader>
-
-          <SimpleKitModalBody>
-            {categorySuggestions.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
-                  <WandSparkles className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="font-medium mb-2">
-                  Analyze Resource Categories
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  AI will analyze {allResources.length} resources in batches of {batchSize}. You'll review each batch before proceeding.
-                </p>
-                {totalBatches > 0 && (
-                  <div className="mb-4 space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium">Batch Progress</span>
-                      <span className="text-muted-foreground">
-                        {currentBatch + (categorizing ? 1 : 0)} / {totalBatches}
-                      </span>
-                    </div>
-                    
-                    <div className="w-full bg-muted rounded-full h-3">
-                      <div
-                        className="bg-primary h-3 rounded-full transition-all duration-300 flex items-center justify-end pr-2"
-                        style={{ width: `${Math.max(8, ((currentBatch + (categorizing ? 1 : 0)) / totalBatches) * 100)}%` }}
-                      >
-                        <span className="text-xs text-white font-medium">
-                          {Math.round(((currentBatch + (categorizing ? 1 : 0)) / totalBatches) * 100)}%
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-3 gap-4 text-xs text-muted-foreground">
-                      <div className="text-center">
-                        <div className="font-medium text-green-600">{currentBatch}</div>
-                        <div>Completed</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-medium text-blue-600">
-                          {Math.max(0, totalBatches - currentBatch - (categorizing ? 1 : 0))}
-                        </div>
-                        <div>Remaining</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="font-medium text-purple-600">
-                          {categorizing ? 'Processing...' : 'Ready'}
-                        </div>
-                        <div>Status</div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <Button
-                  onClick={startBatchCategorization}
-                  disabled={categorizing}
-                  className="gap-2"
-                >
-                  {categorizing ? (
-                    <RefreshCw className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <WandSparkles className="h-4 w-4" />
-                  )}
-                  {categorizing ? 'Processing Batch...' : 'Start Batch Analysis'}
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h4 className="font-medium">Batch {currentBatch + 1} of {totalBatches}</h4>
-                    <p className="text-xs text-muted-foreground">Review and select changes to apply</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Badge variant="secondary">
-                      {
-                        categorySuggestions.filter(
-                          (s) => s.suggestedCategory !== s.currentCategory
-                        ).length
-                      }{" "}
-                      changes
-                    </Badge>
-                    {categorySuggestions.filter(s => s.suggestedCategory !== s.currentCategory).length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const changeIds = categorySuggestions
-                            .filter(s => s.suggestedCategory !== s.currentCategory)
-                            .map(s => s.id);
-                          setSelectedSuggestions(new Set(changeIds));
-                        }}
-                      >
-                        Select All
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="max-h-96 space-y-2">
-                  {categorySuggestions.map((suggestion) => {
-                    const resource = allResources.find(
-                      (r) => r.id === suggestion.id
-                    );
-                    const hasChange =
-                      suggestion.suggestedCategory !==
-                      suggestion.currentCategory;
-
-                    return (
-                      <div
-                        key={suggestion.id}
-                        className={`p-3 border rounded-lg ${
-                          hasChange
-                            ? "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950"
-                            : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
-                        }`}
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            {hasChange && (
-                              <Checkbox
-                                checked={selectedSuggestions.has(suggestion.id)}
-                                onCheckedChange={() => toggleSuggestionSelection(suggestion.id)}
-                                className="flex-shrink-0"
-                              />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <h5 className="font-medium text-sm truncate">
-                                {resource?.name}
-                              </h5>
-                              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                                <Badge variant="outline" className="text-xs flex-shrink-0">
-                                  {suggestion.currentCategory}{resource?.subcategory ? ` > ${resource.subcategory}` : ''}
-                                </Badge>
-                                {hasChange && (
-                                  <>
-                                    <span className="text-xs text-muted-foreground flex-shrink-0">
-                                      →
-                                    </span>
-                                    <Badge className="text-xs flex-shrink-0">
-                                      {suggestion.suggestedCategory}{(suggestion as any).suggestedSubcategory ? ` > ${(suggestion as any).suggestedSubcategory}` : ''}
-                                    </Badge>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            {hasChange ? (
-                              <Badge variant="secondary" className="text-xs">
-                                Change
-                              </Badge>
-                            ) : (
-                              <Badge variant="default" className="text-xs">
-                                Correct
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </SimpleKitModalBody>
-
-          {categorySuggestions.length > 0 && (
-            <SimpleKitModalFooter>
-              <div className="flex gap-2 w-full">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    if (currentBatch + 1 < totalBatches) {
-                      proceedToNextBatch();
-                    } else {
-                      resetBatchState();
-                      setShowBulkCategorize(false);
-                    }
-                  }}
-                  className="flex-1"
-                >
-                  {currentBatch + 1 < totalBatches ? 'Skip Batch' : 'Cancel'}
-                </Button>
-                <Button
-                  onClick={applySelectedSuggestions}
-                  className="flex-1"
-                >
-                  {currentBatch + 1 < totalBatches 
-                    ? `Apply & Next Batch (${selectedSuggestions.size})` 
-                    : `Apply & Finish (${selectedSuggestions.size})`
-                  }
-                </Button>
-              </div>
-            </SimpleKitModalFooter>
-          )}
-        </SimpleKitModalContent>
-      </SimpleKitModal>
+        allResources={allResources}
+        batchSize={batchSize}
+        currentBatch={currentBatch}
+        totalBatches={totalBatches}
+        categorizing={categorizing}
+        categorySuggestions={categorySuggestions}
+        selectedSuggestions={selectedSuggestions}
+        onStartBatchCategorization={startBatchCategorization}
+        onToggleSuggestionSelection={toggleSuggestionSelection}
+        onApplySelectedSuggestions={applySelectedSuggestions}
+        onProceedToNextBatch={proceedToNextBatch}
+        onResetBatchState={resetBatchState}
+      />
 
       {/* Delete Confirmation Modal */}
       <SimpleKitModal
