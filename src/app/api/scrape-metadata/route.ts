@@ -104,6 +104,24 @@ export async function GET(request: NextRequest) {
           { status: 504 }
         );
       }
+      if (error.code === "ENOTFOUND" || error.code === "EAI_AGAIN") {
+        return NextResponse.json(
+          { error: "This URL doesn't exist or can't be reached. Please check the address." },
+          { status: 404 }
+        );
+      }
+      if (error.code === "ECONNREFUSED") {
+        return NextResponse.json(
+          { error: "Connection refused. The website may be down or blocking requests." },
+          { status: 503 }
+        );
+      }
+      if (error.response?.status === 404) {
+        return NextResponse.json(
+          { error: "Page not found. Please check the URL and try again." },
+          { status: 404 }
+        );
+      }
       if (error.response?.status === 500) {
         return NextResponse.json(
           { error: "The target website is currently unavailable (server error)." },
@@ -117,7 +135,7 @@ export async function GET(request: NextRequest) {
         );
       }
       return NextResponse.json(
-        { error: "Network error while fetching the URL. Please try again later." },
+        { error: "Unable to reach this URL. Please verify it's correct and accessible." },
         { status: 500 }
       );
     }

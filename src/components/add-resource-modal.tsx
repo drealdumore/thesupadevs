@@ -256,7 +256,7 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       if (skipTimer) clearTimeout(skipTimer);
       setShowSkip(false);
       setUrlValid(false);
-      setUrlError("Unable to reach this URL. Please check and try again.");
+      setUrlError("Can't connect to this URL. Please check if it's correct and accessible.");
     } finally {
       setScraping(false);
     }
