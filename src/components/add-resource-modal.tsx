@@ -32,6 +32,7 @@ import {
   SimpleKitModalClose,
 } from "@/components/ui/simple-kit-modal";
 
+
 const categories: Category[] = [
   "Frontend",
   "Backend",
