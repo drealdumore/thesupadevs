@@ -188,6 +188,10 @@ export default function AdminPage() {
   const [newCategory, setNewCategory] = useState("");
   const [newSubcategory, setNewSubcategory] = useState("");
   const [selectedCategoryForSub, setSelectedCategoryForSub] = useState<string>("");
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [addingSubcategory, setAddingSubcategory] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
+  const [deletingSubcategory, setDeletingSubcategory] = useState<string | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -292,6 +296,7 @@ export default function AdminPage() {
   };
 
   async function addCategory(name: string) {
+    setAddingCategory(true);
     try {
       const supabase = createClient();
       const { error } = await supabase.from("categories").insert({ name });
@@ -299,10 +304,13 @@ export default function AdminPage() {
       fetchCategories();
     } catch (error) {
       console.error("Error adding category:", error);
+    } finally {
+      setAddingCategory(false);
     }
   }
 
   async function deleteCategory(id: string) {
+    setDeletingCategory(id);
     try {
       const supabase = createClient();
       const { error } = await supabase.from("categories").delete().eq("id", id);
@@ -310,10 +318,13 @@ export default function AdminPage() {
       fetchCategories();
     } catch (error) {
       console.error("Error deleting category:", error);
+    } finally {
+      setDeletingCategory(null);
     }
   }
 
   async function addSubcategory(name: string, categoryId: string) {
+    setAddingSubcategory(true);
     try {
       const supabase = createClient();
       const { error } = await supabase.from("subcategories").insert({ name, category_id: categoryId });
@@ -321,10 +332,13 @@ export default function AdminPage() {
       fetchCategories();
     } catch (error) {
       console.error("Error adding subcategory:", error);
+    } finally {
+      setAddingSubcategory(false);
     }
   }
 
   async function deleteSubcategory(id: string) {
+    setDeletingSubcategory(id);
     try {
       const supabase = createClient();
       const { error } = await supabase.from("subcategories").delete().eq("id", id);
@@ -332,6 +346,8 @@ export default function AdminPage() {
       fetchCategories();
     } catch (error) {
       console.error("Error deleting subcategory:", error);
+    } finally {
+      setDeletingSubcategory(null);
     }
   }
 
@@ -1400,8 +1416,13 @@ export default function AdminPage() {
                         setNewCategory("");
                       }
                     }}
+                    disabled={addingCategory}
                   >
-                    <Plus className="h-4 w-4" />
+                    {addingCategory ? (
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
                   </Button>
                 </div>
 
@@ -1416,8 +1437,13 @@ export default function AdminPage() {
                         size="sm"
                         variant="ghost"
                         onClick={() => deleteCategory(category.id)}
+                        disabled={deletingCategory === category.id}
                       >
-                        <X className="h-3 w-3" />
+                        {deletingCategory === category.id ? (
+                          <RefreshCw className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <X className="h-3 w-3" />
+                        )}
                       </Button>
                     </div>
                   ))}
@@ -1455,9 +1481,13 @@ export default function AdminPage() {
                           setNewSubcategory("");
                         }
                       }}
-                      disabled={!selectedCategoryForSub}
+                      disabled={!selectedCategoryForSub || addingSubcategory}
                     >
-                      <Plus className="h-4 w-4" />
+                      {addingSubcategory ? (
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Plus className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -1474,8 +1504,13 @@ export default function AdminPage() {
                           size="sm" 
                           variant="ghost"
                           onClick={() => deleteSubcategory(subcategory.id)}
+                          disabled={deletingSubcategory === subcategory.id}
                         >
-                          <X className="h-3 w-3" />
+                          {deletingSubcategory === subcategory.id ? (
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <X className="h-3 w-3" />
+                          )}
                         </Button>
                       </div>
                     )
