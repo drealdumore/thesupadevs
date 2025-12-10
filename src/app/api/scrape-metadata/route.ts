@@ -129,6 +129,18 @@ export async function GET(request: NextRequest) {
           { status: 504 }
         );
       }
+      if (error.response?.status === 500) {
+        return NextResponse.json(
+          { error: "The target website is currently unavailable (server error)." },
+          { status: 502 }
+        );
+      }
+      if (error.response?.status === 403 || error.response?.status === 401) {
+        return NextResponse.json(
+          { error: "Access denied by the target website." },
+          { status: 403 }
+        );
+      }
       return NextResponse.json(
         { error: "Network error while fetching the URL. Please try again later." },
         { status: 500 }

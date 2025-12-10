@@ -27,20 +27,20 @@ import { Button } from "@/components/ui/button";
 import { ResourceCard } from "@/components/resource-card";
 import { useRef, useState, useEffect } from "react";
 
-const categories: Category[] = [
-  "Frontend",
-  "Backend",
-  "Fullstack",
-  "DevOps",
-  "Design",
-  "Tools",
-  "Learning",
-];
+type CategoryData = {
+  id: string;
+  name: string;
+  created_at: string;
+};
 
-const categoryIcons: Record<
-  Category,
-  React.ComponentType<{ className?: string }>
-> = {
+type SubcategoryData = {
+  id: string;
+  name: string;
+  category_id: string;
+  created_at: string;
+};
+
+const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
   Frontend: Code,
   Backend: Server,
   Fullstack: Layers,
@@ -48,43 +48,33 @@ const categoryIcons: Record<
   Design: Palette,
   Tools: Wrench,
   Learning: BookOpen,
+  Wallpaper: Sparkles,
 };
 
-const categoryColors: Record<Category, string> = {
+const categoryColors: Record<string, string> = {
   Frontend: "bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800",
-  Backend:
-    "bg-green-500/10 text-green-600 border-green-200 dark:border-green-800",
-  Fullstack:
-    "bg-purple-500/10 text-purple-600 border-purple-200 dark:border-purple-800",
-  DevOps:
-    "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800",
+  Backend: "bg-green-500/10 text-green-600 border-green-200 dark:border-green-800",
+  Fullstack: "bg-purple-500/10 text-purple-600 border-purple-200 dark:border-purple-800",
+  DevOps: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800",
   Design: "bg-pink-500/10 text-pink-600 border-pink-200 dark:border-pink-800",
-  Tools:
-    "bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:border-yellow-800",
-  Learning:
-    "bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800",
-};
-
-const subcategories: Record<Category, string[]> = {
-  Frontend: ["Motion", "State Management", "Styling", "UI Libraries", "Forms"],
-  Backend: ["APIs", "Databases", "Authentication", "Serverless", "ORMs"],
-  Fullstack: ["Frameworks", "Boilerplates", "CMS", "Hosting"],
-  DevOps: ["CI/CD", "Containers", "Monitoring", "Cloud", "Version Control"],
-  Design: ["Prototyping", "Icons", "Colors", "Fonts", "Illustrations"],
-  Tools: ["Editors", "Extensions", "CLI", "Package Managers", "Testing"],
-  Learning: ["Documentation", "Tutorials", "Courses", "Books", "Blogs"],
+  Tools: "bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:border-yellow-800",
+  Learning: "bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800",
+  Wallpaper: "bg-teal-500/10 text-teal-600 border-teal-200 dark:border-teal-800",
 };
 
 export default function Home() {
   const [resources, setResources] = useState<Resource[]>([]);
+  const [categories, setCategories] = useState<CategoryData[]>([]);
+  const [subcategories, setSubcategories] = useState<SubcategoryData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeCategory, setActiveCategory] = useState<Category | "All">("All");
+  const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
     fetchResources();
+    fetchCategories();
 
     // Keyboard navigation
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -97,6 +87,30 @@ export default function Home() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  async function fetchCategories() {
+    try {
+      const supabase = createClient();
+      const [categoriesRes, subcategoriesRes] = await Promise.all([
+        supabase.from("categories").select("*").order("name"),
+        supabase.from("subcategories").select("*").order("name")
+      ]);
+
+      if (categoriesRes.error) throw categoriesRes.error;
+      if (subcategoriesRes.error) throw subcategoriesRes.error;
+
+      setCategories(categoriesRes.data || []);
+      setSubcategories(subcategoriesRes.data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  }
+
+  const getSubcategoriesForCategory = (categoryName: string) => {
+    const category = categories.find(c => c.name === categoryName);
+    if (!category) return [];
+    return subcategories.filter(sub => sub.category_id === category.id);
+  };
 
   async function fetchResources() {
     try {
@@ -134,20 +148,21 @@ export default function Home() {
     return diffDays <= 7;
   };
 
-  const getMostPopularSubcategory = (category: Category) => {
-    const counts = subcategories[category].map((subcat) => ({
-      subcat,
+  const getMostPopularSubcategory = (categoryName: string) => {
+    const categorySubcategories = getSubcategoriesForCategory(categoryName);
+    const counts = categorySubcategories.map((subcat) => ({
+      subcat: subcat.name,
       count: resources.filter(
-        (r) => r.category === category && r.subcategory === subcat
+        (r) => r.category === categoryName && r.subcategory === subcat.name
       ).length,
     }));
     return counts.sort((a, b) => b.count - a.count)[0];
   };
 
-  const scrollToCategory = (category: Category) => {
-    setActiveCategory(category);
+  const scrollToCategory = (categoryName: string) => {
+    setActiveCategory(categoryName);
     setTimeout(() => {
-      categoryRefs.current[category]?.scrollIntoView({
+      categoryRefs.current[categoryName]?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
@@ -157,7 +172,7 @@ export default function Home() {
   return (
     <div className="container py-16 space-y-8 md:py-24 md:space-y-12">
       {/* Hero Section */}
-      <div className="flex flex-col border-b border-foreground items-center gap-12 lg:flex-row lg:gap-24">
+      <div className="flex flex-col border-b border-border items-center gap-12 lg:flex-row lg:gap-24">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -261,20 +276,20 @@ export default function Home() {
             All
           </motion.button>
           {categories.map((category, index) => {
-            const Icon = categoryIcons[category];
+            const Icon = categoryIcons[category.name] || Code;
             const count = resources.filter(
-              (r) => r.category === category
+              (r) => r.category === category.name
             ).length;
             return (
               <motion.button
-                key={category}
+                key={category.id}
                 onClick={() =>
                   activeCategory === "All"
-                    ? scrollToCategory(category)
-                    : setActiveCategory(category)
+                    ? scrollToCategory(category.name)
+                    : setActiveCategory(category.name)
                 }
                 className={`rounded-full border px-5 py-3 text-sm font-semibold tracking-wide transition-all duration-200 md:px-6 md:py-2 md:text-sm flex items-center gap-2 min-h-[44px] md:min-h-[36px] relative ${
-                  activeCategory === category
+                  activeCategory === category.name
                     ? "border-foreground bg-foreground text-background shadow-lg"
                     : "border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted/50 hover:shadow-md"
                 }`}
@@ -285,7 +300,7 @@ export default function Home() {
                 whileTap={{ scale: 0.95 }}
               >
                 <Icon className="h-4 w-4 md:h-3 md:w-3" />
-                {category}
+                {category.name}
                 {count > 0 && (
                   <span className="ml-1 px-1.5 py-0.5 text-xs bg-primary/20 text-primary rounded-full">
                     {count}
@@ -347,29 +362,30 @@ export default function Home() {
           </div>
         ) : activeCategory === "All" ? (
           categories.map((category, categoryIndex) => {
-            const popular = getMostPopularSubcategory(category);
+            const popular = getMostPopularSubcategory(category.name);
+            const categorySubcategories = getSubcategoriesForCategory(category.name);
             return (
               <motion.div
-                key={category}
+                key={category.id}
                 className="space-y-4"
                 ref={(el) => {
-                  categoryRefs.current[category] = el;
+                  categoryRefs.current[category.name] = el;
                 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, delay: categoryIndex * 0.1 }}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${categoryColors[category]}`}>
-                    {React.createElement(categoryIcons[category], {
+                  <div className={`p-2 rounded-lg ${categoryColors[category.name]}`}>
+                    {React.createElement(categoryIcons[category.name] || Code, {
                       className: "h-5 w-5",
                     })}
                   </div>
                   <h2 className="text-xl font-semibold font-heading">
-                    {category}
+                    {category.name}
                   </h2>
                   <span className="px-2 py-1 text-xs bg-muted rounded-full text-muted-foreground">
-                    {resources.filter((r) => r.category === category).length}{" "}
+                    {resources.filter((r) => r.category === category.name).length}{" "}
                     resources
                   </span>
                 </div>
@@ -382,22 +398,22 @@ export default function Home() {
                     delay: categoryIndex * 0.1 + 0.2,
                   }}
                 >
-                  {subcategories[category].map((subcat, subcatIndex) => {
+                  {categorySubcategories.map((subcat, subcatIndex) => {
                     const count = resources.filter(
-                      (r) => r.category === category && r.subcategory === subcat
+                      (r) => r.category === category.name && r.subcategory === subcat.name
                     ).length;
                     const isPopular =
-                      popular && subcat === popular.subcat && popular.count > 5;
+                      popular && subcat.name === popular.subcat && popular.count > 5;
                     const resourcesInSubcat = resources
                       .filter(
                         (r) =>
-                          r.category === category && r.subcategory === subcat
+                          r.category === category.name && r.subcategory === subcat.name
                       )
                       .slice(0, 3);
 
                     return count === 0 ? (
                       <motion.div
-                        key={subcat}
+                        key={subcat.id}
                         className="group flex items-center justify-between p-4 rounded-lg border bg-muted/20 border-dashed opacity-60 hover:opacity-80 transition-opacity"
                         title="No resources yet - be the first to add one!"
                         initial={{ opacity: 0, y: 20 }}
@@ -409,7 +425,7 @@ export default function Home() {
                         whileHover={{ scale: 1.02 }}
                       >
                         <div className="flex-1">
-                          <h3 className="font-medium text-sm mb-1">{subcat}</h3>
+                          <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
                           <p className="text-xs text-muted-foreground">
                             Be the first! 🎆
                           </p>
@@ -418,7 +434,7 @@ export default function Home() {
                       </motion.div>
                     ) : (
                       <motion.div
-                        key={subcat}
+                        key={subcat.id}
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
@@ -429,8 +445,8 @@ export default function Home() {
                         whileTap={{ scale: 0.98 }}
                       >
                         <Link
-                          href={`/category/${category}?subcategory=${encodeURIComponent(
-                            subcat
+                          href={`/category/${category.name}?subcategory=${encodeURIComponent(
+                            subcat.name
                           )}`}
                           className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm block"
                           title={resourcesInSubcat
@@ -453,7 +469,7 @@ export default function Home() {
                           )}
                           <div className="flex-1">
                             <h3 className="font-medium text-sm mb-1">
-                              {subcat}
+                              {subcat.name}
                             </h3>
                             <p className="text-xs text-muted-foreground">
                               {count} {count === 1 ? "resource" : "resources"}
@@ -479,26 +495,26 @@ export default function Home() {
               {activeCategory}
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {subcategories[activeCategory].map((subcat) => {
+              {getSubcategoriesForCategory(activeCategory).map((subcat) => {
                 const count = resources.filter(
                   (r) =>
-                    r.category === activeCategory && r.subcategory === subcat
+                    r.category === activeCategory && r.subcategory === subcat.name
                 ).length;
                 const resourcesInSubcat = resources
                   .filter(
                     (r) =>
-                      r.category === activeCategory && r.subcategory === subcat
+                      r.category === activeCategory && r.subcategory === subcat.name
                   )
                   .slice(0, 3);
 
                 return count === 0 ? (
                   <div
-                    key={subcat}
+                    key={subcat.id}
                     className="group flex items-center justify-between p-4 rounded-lg border bg-muted/20 border-dashed opacity-60 hover:opacity-80 transition-opacity"
                     title="No resources yet - be the first to add one!"
                   >
                     <div className="flex-1">
-                      <h3 className="font-medium text-sm mb-1">{subcat}</h3>
+                      <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
                       <p className="text-xs text-muted-foreground">
                         Be the first! 🎆
                       </p>
@@ -507,9 +523,9 @@ export default function Home() {
                   </div>
                 ) : (
                   <Link
-                    key={subcat}
+                    key={subcat.id}
                     href={`/category/${activeCategory}?subcategory=${encodeURIComponent(
-                      subcat
+                      subcat.name
                     )}`}
                     className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm"
                     title={resourcesInSubcat.map((r) => r.name).join(", ")}
@@ -523,7 +539,7 @@ export default function Home() {
                       </div>
                     )}
                     <div className="flex-1">
-                      <h3 className="font-medium text-sm mb-1">{subcat}</h3>
+                      <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
                       <p className="text-xs text-muted-foreground">
                         {count} {count === 1 ? "resource" : "resources"}
                       </p>

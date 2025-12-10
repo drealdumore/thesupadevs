@@ -60,17 +60,33 @@ const categoryInfo: Record<Category, { title: string; description: string }> = {
   },
 };
 
-export default async function CategoryPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ subcategory?: string }> }) {
-  const { slug } = await params;
-  const { subcategory } = await searchParams;
-  const category = slug as Category;
+export default function CategoryPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ subcategory?: string }> }) {
+  return <CategoryPageWrapper params={params} searchParams={searchParams} />;
+}
+
+function CategoryPageWrapper({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ subcategory?: string }> }) {
+  const [resolvedParams, setResolvedParams] = useState<{ slug: string } | null>(null);
+  const [resolvedSearchParams, setResolvedSearchParams] = useState<{ subcategory?: string } | null>(null);
+
+  useEffect(() => {
+    Promise.all([params, searchParams]).then(([p, sp]) => {
+      setResolvedParams(p);
+      setResolvedSearchParams(sp);
+    });
+  }, [params, searchParams]);
+
+  if (!resolvedParams || !resolvedSearchParams) {
+    return <div>Loading...</div>;
+  }
+
+  const category = resolvedParams.slug as Category;
   const info = categoryInfo[category];
 
   if (!info) {
     notFound();
   }
 
-  return <CategoryPageClient category={category} info={info} subcategory={subcategory} />;
+  return <CategoryPageClient category={category} info={info} subcategory={resolvedSearchParams.subcategory} />;
 }
 
 function CategoryPageClient({ category, info, subcategory }: { category: Category; info: { title: string; description: string }; subcategory?: string }) {

@@ -65,24 +65,17 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { Category } from "@/lib/types/database";
 
-const defaultCategories: Category[] = [
-  "Frontend",
-  "Backend",
-  "Fullstack",
-  "DevOps",
-  "Design",
-  "Tools",
-  "Learning",
-];
+type CategoryData = {
+  id: string;
+  name: string;
+  created_at: string;
+};
 
-const subcategoriesMap: Record<Category, string[]> = {
-  Frontend: ["React", "Vue", "Angular", "CSS", "JavaScript", "TypeScript"],
-  Backend: ["Node.js", "Python", "Java", "Go", "Rust", "PHP"],
-  Fullstack: ["Next.js", "Nuxt", "SvelteKit", "T3 Stack"],
-  DevOps: ["Docker", "Kubernetes", "CI/CD", "AWS", "Monitoring"],
-  Design: ["UI/UX", "Icons", "Colors", "Typography", "Wireframing"],
-  Tools: ["IDE", "CLI", "Browser Extensions", "Productivity"],
-  Learning: ["Tutorials", "Courses", "Books", "Documentation"],
+type SubcategoryData = {
+  id: string;
+  name: string;
+  category_id: string;
+  created_at: string;
 };
 
 // Enhanced Image Preview Component for Edit Modal
@@ -149,7 +142,9 @@ export default function AdminPage() {
   const [password, setPassword] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
   const [allResources, setAllResources] = useState<Resource[]>([]);
-  const [categories, setCategories] = useState<Category[]>(defaultCategories);
+  const [categories, setCategories] = useState<CategoryData[]>([]);
+  const [subcategories, setSubcategories] = useState<SubcategoryData[]>([]);
+
 
   // Filtering & Search
   const [filter, setFilter] = useState<"all" | "pending" | "approved">("all");
@@ -192,8 +187,7 @@ export default function AdminPage() {
   // Category Management
   const [newCategory, setNewCategory] = useState("");
   const [newSubcategory, setNewSubcategory] = useState("");
-  const [selectedCategoryForSub, setSelectedCategoryForSub] =
-    useState<Category>("Frontend");
+  const [selectedCategoryForSub, setSelectedCategoryForSub] = useState<string>("");
 
   useEffect(() => {
     checkAuth();
@@ -208,16 +202,34 @@ export default function AdminPage() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      console.log("Fetched resources:", data);
-      console.log(
-        "Pending resources:",
-        data?.filter((r) => r.status === "pending")
-      );
       setAllResources(data || []);
     } catch (error) {
       console.error("Error fetching resources:", error);
     }
   }, []);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      const [categoriesRes, subcategoriesRes] = await Promise.all([
+        supabase.from("categories").select("*").order("name"),
+        supabase.from("subcategories").select("*").order("name")
+      ]);
+
+      if (categoriesRes.error) throw categoriesRes.error;
+      if (subcategoriesRes.error) throw subcategoriesRes.error;
+
+      setCategories(categoriesRes.data || []);
+      setSubcategories(subcategoriesRes.data || []);
+      if (categoriesRes.data?.[0]) {
+        setSelectedCategoryForSub(categoriesRes.data[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  }, []);
+
+
 
   // Enhanced filtering and sorting
   const filteredAndSortedResources = allResources
@@ -239,15 +251,15 @@ export default function AdminPage() {
       return matchesStatus && matchesSearch && matchesCategory;
     })
     .sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
+      let aVal: string | number | Date = a[sortField];
+      let bVal: string | number | Date = b[sortField];
 
       if (sortField === "created_at") {
         aVal = new Date(aVal).getTime();
         bVal = new Date(bVal).getTime();
       }
 
-      if (typeof aVal === "string") {
+      if (typeof aVal === "string" && typeof bVal === "string") {
         aVal = aVal.toLowerCase();
         bVal = bVal.toLowerCase();
       }
@@ -271,8 +283,57 @@ export default function AdminPage() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchResources();
+      fetchCategories();
     }
-  }, [isAuthenticated, fetchResources]);
+  }, [isAuthenticated, fetchResources, fetchCategories]);
+
+  const getSubcategoriesForCategory = (categoryId: string) => {
+    return subcategories.filter(sub => sub.category_id === categoryId);
+  };
+
+  async function addCategory(name: string) {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("categories").insert({ name });
+      if (error) throw error;
+      fetchCategories();
+    } catch (error) {
+      console.error("Error adding category:", error);
+    }
+  }
+
+  async function deleteCategory(id: string) {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("categories").delete().eq("id", id);
+      if (error) throw error;
+      fetchCategories();
+    } catch (error) {
+      console.error("Error deleting category:", error);
+    }
+  }
+
+  async function addSubcategory(name: string, categoryId: string) {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("subcategories").insert({ name, category_id: categoryId });
+      if (error) throw error;
+      fetchCategories();
+    } catch (error) {
+      console.error("Error adding subcategory:", error);
+    }
+  }
+
+  async function deleteSubcategory(id: string) {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("subcategories").delete().eq("id", id);
+      if (error) throw error;
+      fetchCategories();
+    } catch (error) {
+      console.error("Error deleting subcategory:", error);
+    }
+  }
 
   async function checkAuth() {
     const supabase = createClient();
@@ -608,8 +669,8 @@ export default function AdminPage() {
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
+                  <SelectItem key={cat.id} value={cat.name}>
+                    {cat.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -1056,36 +1117,40 @@ export default function AdminPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
+                      <SelectItem key={cat.id} value={cat.name}>
+                        {cat.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {editForm.category && subcategoriesMap[editForm.category] && (
-                <div className="space-y-2">
-                  <Label htmlFor="edit-subcategory">Subcategory</Label>
-                  <Select
-                    value={editForm.subcategory}
-                    onValueChange={(value) =>
-                      setEditForm((prev) => ({ ...prev, subcategory: value }))
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a subcategory (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subcategoriesMap[editForm.category].map((subcat) => (
-                        <SelectItem key={subcat} value={subcat}>
-                          {subcat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+              {editForm.category && (() => {
+                const categoryData = categories.find(c => c.name === editForm.category);
+                const categorySubcategories = categoryData ? getSubcategoriesForCategory(categoryData.id) : [];
+                return categorySubcategories.length > 0 ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-subcategory">Subcategory</Label>
+                    <Select
+                      value={editForm.subcategory}
+                      onValueChange={(value) =>
+                        setEditForm((prev) => ({ ...prev, subcategory: value }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a subcategory (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categorySubcategories.map((subcat) => (
+                          <SelectItem key={subcat.id} value={subcat.name}>
+                            {subcat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null;
+              })()}
 
               <div className="space-y-2">
                 <Label htmlFor="edit-description">Description *</Label>
@@ -1331,10 +1396,7 @@ export default function AdminPage() {
                   <Button
                     onClick={() => {
                       if (newCategory.trim()) {
-                        setCategories((prev) => [
-                          ...prev,
-                          newCategory.trim() as Category,
-                        ]);
+                        addCategory(newCategory.trim());
                         setNewCategory("");
                       }
                     }}
@@ -1346,18 +1408,14 @@ export default function AdminPage() {
                 <div className="space-y-2">
                   {categories.map((category) => (
                     <div
-                      key={category}
+                      key={category.id}
                       className="flex items-center justify-between p-2 border rounded"
                     >
-                      <span>{category}</span>
+                      <span>{category.name}</span>
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() =>
-                          setCategories((prev) =>
-                            prev.filter((c) => c !== category)
-                          )
-                        }
+                        onClick={() => deleteCategory(category.id)}
                       >
                         <X className="h-3 w-3" />
                       </Button>
@@ -1370,17 +1428,15 @@ export default function AdminPage() {
                 <div className="space-y-2">
                   <Select
                     value={selectedCategoryForSub}
-                    onValueChange={(value) =>
-                      setSelectedCategoryForSub(value as Category)
-                    }
+                    onValueChange={setSelectedCategoryForSub}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
                       {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat}>
-                          {cat}
+                        <SelectItem key={cat.id} value={cat.id}>
+                          {cat.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1394,10 +1450,12 @@ export default function AdminPage() {
                     />
                     <Button
                       onClick={() => {
-                        if (newSubcategory.trim()) {
+                        if (newSubcategory.trim() && selectedCategoryForSub) {
+                          addSubcategory(newSubcategory.trim(), selectedCategoryForSub);
                           setNewSubcategory("");
                         }
                       }}
+                      disabled={!selectedCategoryForSub}
                     >
                       <Plus className="h-4 w-4" />
                     </Button>
@@ -1405,14 +1463,18 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-2">
-                  {subcategoriesMap[selectedCategoryForSub]?.map(
+                  {getSubcategoriesForCategory(selectedCategoryForSub).map(
                     (subcategory) => (
                       <div
-                        key={subcategory}
+                        key={subcategory.id}
                         className="flex items-center justify-between p-2 border rounded"
                       >
-                        <span>{subcategory}</span>
-                        <Button size="sm" variant="ghost">
+                        <span>{subcategory.name}</span>
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          onClick={() => deleteSubcategory(subcategory.id)}
+                        >
                           <X className="h-3 w-3" />
                         </Button>
                       </div>
@@ -1470,7 +1532,7 @@ export default function AdminPage() {
               <h4 className="font-medium">Resources by Category</h4>
               {categories.map((category) => {
                 const count = allResources.filter(
-                  (r) => r.category === category
+                  (r) => r.category === category.name
                 ).length;
                 const percentage =
                   allResources.length > 0
@@ -1478,9 +1540,9 @@ export default function AdminPage() {
                     : 0;
 
                 return (
-                  <div key={category} className="space-y-1">
+                  <div key={category.id} className="space-y-1">
                     <div className="flex justify-between text-sm">
-                      <span>{category}</span>
+                      <span>{category.name}</span>
                       <span>
                         {count} ({percentage.toFixed(1)}%)
                       </span>
