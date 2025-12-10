@@ -14,13 +14,17 @@ interface CacheData {
 
 const cache = new Map<string, CacheData>();
 
-// Fallback scraper using Cheerio
-async function fallbackScraper(url: string) {
+// Direct scraper using Cheerio
+async function scrapeMetadata(url: string) {
   const { data } = await axios.get(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; DevLibrary/1.0; +https://devlibrary.com)",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.5",
+      "Accept-Encoding": "gzip, deflate",
+      "Connection": "keep-alive",
     },
-    timeout: 5000,
+    timeout: 8000,
   });
 
   const $ = cheerio.load(data);
@@ -80,47 +84,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Try Microlink API first (fast & reliable)
-    const microlinkResponse = await axios.get(
-      `https://api.microlink.io?url=${encodeURIComponent(url)}`,
-      { timeout: 3000 }
-    );
-
-    if (microlinkResponse.data.status === "success") {
-      const data = microlinkResponse.data.data;
-      const metadata = {
-        title: data.title || null,
-        description: data.description || null,
-        image: data.image?.url || data.logo?.url || null,
-      };
-
-      const responseData = {
-        metadata,
-        success: true,
-        source: "microlink",
-      };
-
-      cache.set(url, responseData);
-      return NextResponse.json(responseData);
-    }
-  } catch (microlinkError) {
-    console.log("Microlink failed, trying fallback scraper...");
-  }
-
-  // Fallback to custom scraper
-  try {
-    const metadata = await fallbackScraper(url);
+    const metadata = await scrapeMetadata(url);
 
     const responseData = {
       metadata,
       success: true,
-      source: "fallback",
+      source: "direct",
     };
 
     cache.set(url, responseData);
     return NextResponse.json(responseData);
   } catch (error: unknown) {
-    console.error("Both scrapers failed:", error);
+    console.error("Scraper failed:", error);
 
     if (axios.isAxiosError(error)) {
       if (error.code === "ECONNABORTED") {
