@@ -38,6 +38,7 @@ import {
   Copy,
   Archive,
   Star,
+  WandSparkles,
   Clock,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -98,12 +99,12 @@ function EditImagePreview({ imageUrl }: { imageUrl: string }) {
           {!imageLoaded && (
             <div className="absolute inset-0 bg-muted animate-pulse" />
           )}
-          
+
           <img
             src={imageUrl}
             alt="Resource preview"
             className={`h-full w-full object-cover transition-all duration-300 ${
-              imageLoaded ? 'opacity-100' : 'opacity-0'
+              imageLoaded ? "opacity-100" : "opacity-0"
             }`}
             loading="lazy"
             decoding="async"
@@ -113,7 +114,7 @@ function EditImagePreview({ imageUrl }: { imageUrl: string }) {
               setImageLoaded(false);
             }}
           />
-          
+
           {imageLoaded && (
             <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
           )}
@@ -121,8 +122,18 @@ function EditImagePreview({ imageUrl }: { imageUrl: string }) {
       ) : (
         <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted/30 rounded flex items-center justify-center">
           <div className="text-muted-foreground/50">
-            <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+            <svg
+              className="h-8 w-8"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z"
+              />
             </svg>
           </div>
         </div>
@@ -137,6 +148,8 @@ type SortOrder = "asc" | "desc";
 export default function AdminPage() {
   // Core state
   const [loading, setLoading] = useState(true);
+  const [resourcesLoading, setResourcesLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -144,7 +157,6 @@ export default function AdminPage() {
   const [allResources, setAllResources] = useState<Resource[]>([]);
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [subcategories, setSubcategories] = useState<SubcategoryData[]>([]);
-
 
   // Filtering & Search
   const [filter, setFilter] = useState<"all" | "pending" | "approved">("all");
@@ -187,11 +199,40 @@ export default function AdminPage() {
   // Category Management
   const [newCategory, setNewCategory] = useState("");
   const [newSubcategory, setNewSubcategory] = useState("");
-  const [selectedCategoryForSub, setSelectedCategoryForSub] = useState<string>("");
+  const [selectedCategoryForSub, setSelectedCategoryForSub] =
+    useState<string>("");
   const [addingCategory, setAddingCategory] = useState(false);
   const [addingSubcategory, setAddingSubcategory] = useState(false);
   const [deletingCategory, setDeletingCategory] = useState<string | null>(null);
-  const [deletingSubcategory, setDeletingSubcategory] = useState<string | null>(null);
+  const [deletingSubcategory, setDeletingSubcategory] = useState<string | null>(
+    null
+  );
+
+  // AI Categorization
+  const [showBulkCategorize, setShowBulkCategorize] = useState(false);
+  const [categorizing, setCategorizing] = useState(false);
+  const [categorySuggestions, setCategorySuggestions] = useState<
+    Array<{
+      id: string;
+      currentCategory: string;
+      suggestedCategory: string;
+      confidence: string;
+    }>
+  >([]);
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
+  const [currentBatch, setCurrentBatch] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('ai-batch-current') || '0');
+    }
+    return 0;
+  });
+  const [totalBatches, setTotalBatches] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return parseInt(localStorage.getItem('ai-batch-total') || '0');
+    }
+    return 0;
+  });
+  const [batchSize] = useState(50);
 
   useEffect(() => {
     checkAuth();
@@ -199,6 +240,7 @@ export default function AdminPage() {
 
   const fetchResources = useCallback(async () => {
     try {
+      setResourcesLoading(true);
       const supabase = createClient();
       const { data, error } = await supabase
         .from("resources")
@@ -209,15 +251,18 @@ export default function AdminPage() {
       setAllResources(data || []);
     } catch (error) {
       console.error("Error fetching resources:", error);
+    } finally {
+      setResourcesLoading(false);
     }
   }, []);
 
   const fetchCategories = useCallback(async () => {
     try {
+      setCategoriesLoading(true);
       const supabase = createClient();
       const [categoriesRes, subcategoriesRes] = await Promise.all([
         supabase.from("categories").select("*").order("name"),
-        supabase.from("subcategories").select("*").order("name")
+        supabase.from("subcategories").select("*").order("name"),
       ]);
 
       if (categoriesRes.error) throw categoriesRes.error;
@@ -230,10 +275,10 @@ export default function AdminPage() {
       }
     } catch (error) {
       console.error("Error fetching categories:", error);
+    } finally {
+      setCategoriesLoading(false);
     }
   }, []);
-
-
 
   // Enhanced filtering and sorting
   const filteredAndSortedResources = allResources
@@ -291,8 +336,12 @@ export default function AdminPage() {
     }
   }, [isAuthenticated, fetchResources, fetchCategories]);
 
+  useEffect(() => {
+    setLoading(resourcesLoading || categoriesLoading);
+  }, [resourcesLoading, categoriesLoading]);
+
   const getSubcategoriesForCategory = (categoryId: string) => {
-    return subcategories.filter(sub => sub.category_id === categoryId);
+    return subcategories.filter((sub) => sub.category_id === categoryId);
   };
 
   async function addCategory(name: string) {
@@ -327,7 +376,9 @@ export default function AdminPage() {
     setAddingSubcategory(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from("subcategories").insert({ name, category_id: categoryId });
+      const { error } = await supabase
+        .from("subcategories")
+        .insert({ name, category_id: categoryId });
       if (error) throw error;
       fetchCategories();
     } catch (error) {
@@ -341,7 +392,10 @@ export default function AdminPage() {
     setDeletingSubcategory(id);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from("subcategories").delete().eq("id", id);
+      const { error } = await supabase
+        .from("subcategories")
+        .delete()
+        .eq("id", id);
       if (error) throw error;
       fetchCategories();
     } catch (error) {
@@ -355,7 +409,9 @@ export default function AdminPage() {
     const supabase = createClient();
     const { data } = await supabase.auth.getSession();
     setIsAuthenticated(!!data.session);
-    setLoading(false);
+    if (!data.session) {
+      setLoading(false);
+    }
   }
 
   async function handleLogin(e: React.FormEvent) {
@@ -538,6 +594,130 @@ export default function AdminPage() {
     }
   }
 
+  // AI Categorization
+  async function startBatchCategorization() {
+    const total = Math.ceil(allResources.length / batchSize);
+    setCurrentBatch(0);
+    setTotalBatches(total);
+    localStorage.setItem('ai-batch-current', '0');
+    localStorage.setItem('ai-batch-total', total.toString());
+    setCategorySuggestions([]);
+    setSelectedSuggestions(new Set());
+    processNextBatch();
+  }
+
+  async function processNextBatch() {
+    setCategorizing(true);
+    const batchNum = currentBatch + 1;
+    const offset = currentBatch * batchSize;
+    const batch = allResources.slice(offset, offset + batchSize);
+    
+    if (batch.length === 0) {
+      setCategorizing(false);
+      return;
+    }
+
+    try {
+      console.log(`🚀 Starting batch ${batchNum}/${totalBatches} (${batch.length} resources)`);
+      const startTime = Date.now();
+
+      const response = await fetch("/api/categorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          resources: batch,
+          categories: categories,
+          subcategories: subcategories,
+          offset,
+          limit: batchSize,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.suggestions) {
+        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+        const changes = data.suggestions.filter((s: any) => s.suggestedCategory !== s.currentCategory).length;
+        console.log(`✅ Batch ${batchNum} completed in ${duration}s - ${changes} changes found`);
+        
+        setCategorySuggestions(data.suggestions);
+        setSelectedSuggestions(new Set(data.suggestions.filter((s: any) => s.suggestedCategory !== s.currentCategory).map((s: any) => s.id)));
+      }
+    } catch (error) {
+      console.error("❌ Error categorizing batch:", error);
+    } finally {
+      setCategorizing(false);
+    }
+  }
+
+  function proceedToNextBatch() {
+    const nextBatch = currentBatch + 1;
+    setCurrentBatch(nextBatch);
+    localStorage.setItem('ai-batch-current', nextBatch.toString());
+    setCategorySuggestions([]);
+    setSelectedSuggestions(new Set());
+    setTimeout(processNextBatch, 100);
+  }
+
+  async function applyCategorySuggestions(
+    suggestions: typeof categorySuggestions
+  ) {
+    try {
+      const supabase = createClient();
+
+      for (const suggestion of suggestions) {
+        if (suggestion.suggestedCategory !== suggestion.currentCategory) {
+          await supabase
+            .from("resources")
+            .update({ category: suggestion.suggestedCategory })
+            .eq("id", suggestion.id);
+        }
+      }
+
+      fetchResources();
+      
+      // Check if there are more batches
+      if (currentBatch + 1 < totalBatches) {
+        proceedToNextBatch();
+      } else {
+        // All batches complete
+        setShowBulkCategorize(false);
+        setCategorySuggestions([]);
+        setSelectedSuggestions(new Set());
+        setCurrentBatch(0);
+        setTotalBatches(0);
+      }
+    } catch (error) {
+      console.error("Error applying suggestions:", error);
+    }
+  }
+
+  function toggleSuggestionSelection(id: string) {
+    const newSelection = new Set(selectedSuggestions);
+    if (newSelection.has(id)) {
+      newSelection.delete(id);
+    } else {
+      newSelection.add(id);
+    }
+    setSelectedSuggestions(newSelection);
+  }
+
+  function applySelectedSuggestions() {
+    const selectedSuggestionsList = categorySuggestions.filter((s: any) => 
+      selectedSuggestions.has(s.id) && s.suggestedCategory !== s.currentCategory
+    );
+    applyCategorySuggestions(selectedSuggestionsList);
+  }
+
+  function resetBatchState() {
+    setCategorySuggestions([]);
+    setSelectedSuggestions(new Set());
+    setCurrentBatch(0);
+    setTotalBatches(0);
+    setCategorizing(false);
+    localStorage.removeItem('ai-batch-current');
+    localStorage.removeItem('ai-batch-total');
+  }
+
   if (loading) {
     return (
       <div className="container py-8 flex items-center justify-center min-h-[calc(100vh-4rem)]">
@@ -651,6 +831,14 @@ export default function AdminPage() {
           >
             <Settings className="h-4 w-4" />
             Categories
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setShowBulkCategorize(true)}
+            className="gap-2"
+          >
+            <WandSparkles className="h-4 w-4" />
+            AI Categorize
           </Button>
           <Button variant="outline" onClick={handleLogout} className="gap-2">
             <LogOut className="h-4 w-4" />
@@ -1141,32 +1329,40 @@ export default function AdminPage() {
                 </Select>
               </div>
 
-              {editForm.category && (() => {
-                const categoryData = categories.find(c => c.name === editForm.category);
-                const categorySubcategories = categoryData ? getSubcategoriesForCategory(categoryData.id) : [];
-                return categorySubcategories.length > 0 ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-subcategory">Subcategory</Label>
-                    <Select
-                      value={editForm.subcategory}
-                      onValueChange={(value) =>
-                        setEditForm((prev) => ({ ...prev, subcategory: value }))
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a subcategory (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {categorySubcategories.map((subcat) => (
-                          <SelectItem key={subcat.id} value={subcat.name}>
-                            {subcat.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : null;
-              })()}
+              {editForm.category &&
+                (() => {
+                  const categoryData = categories.find(
+                    (c) => c.name === editForm.category
+                  );
+                  const categorySubcategories = categoryData
+                    ? getSubcategoriesForCategory(categoryData.id)
+                    : [];
+                  return categorySubcategories.length > 0 ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-subcategory">Subcategory</Label>
+                      <Select
+                        value={editForm.subcategory}
+                        onValueChange={(value) =>
+                          setEditForm((prev) => ({
+                            ...prev,
+                            subcategory: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a subcategory (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categorySubcategories.map((subcat) => (
+                            <SelectItem key={subcat.id} value={subcat.name}>
+                              {subcat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : null;
+                })()}
 
               <div className="space-y-2">
                 <Label htmlFor="edit-description">Description *</Label>
@@ -1219,14 +1415,19 @@ export default function AdminPage() {
                       if (!editForm.url) return;
                       try {
                         const response = await fetch(
-                          `/api/scrape-metadata?url=${encodeURIComponent(editForm.url)}`
+                          `/api/scrape-metadata?url=${encodeURIComponent(
+                            editForm.url
+                          )}`
                         );
                         const data = await response.json();
                         if (data.success && data.metadata.image) {
-                          setEditForm(prev => ({ ...prev, image_url: data.metadata.image }));
+                          setEditForm((prev) => ({
+                            ...prev,
+                            image_url: data.metadata.image,
+                          }));
                         }
                       } catch (error) {
-                        console.error('Error fetching image:', error);
+                        console.error("Error fetching image:", error);
                       }
                     }}
                     disabled={!editForm.url}
@@ -1477,7 +1678,10 @@ export default function AdminPage() {
                     <Button
                       onClick={() => {
                         if (newSubcategory.trim() && selectedCategoryForSub) {
-                          addSubcategory(newSubcategory.trim(), selectedCategoryForSub);
+                          addSubcategory(
+                            newSubcategory.trim(),
+                            selectedCategoryForSub
+                          );
                           setNewSubcategory("");
                         }
                       }}
@@ -1500,8 +1704,8 @@ export default function AdminPage() {
                         className="flex items-center justify-between p-2 border rounded"
                       >
                         <span>{subcategory.name}</span>
-                        <Button 
-                          size="sm" 
+                        <Button
+                          size="sm"
                           variant="ghost"
                           onClick={() => deleteSubcategory(subcategory.id)}
                           disabled={deletingSubcategory === subcategory.id}
@@ -1593,6 +1797,217 @@ export default function AdminPage() {
               })}
             </div>
           </SimpleKitModalBody>
+        </SimpleKitModalContent>
+      </SimpleKitModal>
+
+      {/* Bulk Categorization Modal */}
+      <SimpleKitModal
+        open={showBulkCategorize}
+        onOpenChange={setShowBulkCategorize}
+      >
+        <SimpleKitModalContent>
+          <SimpleKitModalHeader>
+            <SimpleKitModalTitle>AI Bulk Categorization</SimpleKitModalTitle>
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              Use AI to analyze and suggest better categories for your resources
+            </p>
+          </SimpleKitModalHeader>
+
+          <SimpleKitModalBody>
+            {categorySuggestions.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+                  <WandSparkles className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="font-medium mb-2">
+                  Analyze Resource Categories
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  AI will analyze {allResources.length} resources in batches of {batchSize}. You'll review each batch before proceeding.
+                </p>
+                {totalBatches > 0 && (
+                  <div className="mb-4 space-y-3">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium">Batch Progress</span>
+                      <span className="text-muted-foreground">
+                        {currentBatch + (categorizing ? 1 : 0)} / {totalBatches}
+                      </span>
+                    </div>
+                    
+                    <div className="w-full bg-muted rounded-full h-3">
+                      <div
+                        className="bg-primary h-3 rounded-full transition-all duration-300 flex items-center justify-end pr-2"
+                        style={{ width: `${Math.max(8, ((currentBatch + (categorizing ? 1 : 0)) / totalBatches) * 100)}%` }}
+                      >
+                        <span className="text-xs text-white font-medium">
+                          {Math.round(((currentBatch + (categorizing ? 1 : 0)) / totalBatches) * 100)}%
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-4 text-xs text-muted-foreground">
+                      <div className="text-center">
+                        <div className="font-medium text-green-600">{currentBatch}</div>
+                        <div>Completed</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-medium text-blue-600">
+                          {Math.max(0, totalBatches - currentBatch - (categorizing ? 1 : 0))}
+                        </div>
+                        <div>Remaining</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-medium text-purple-600">
+                          {categorizing ? 'Processing...' : 'Ready'}
+                        </div>
+                        <div>Status</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <Button
+                  onClick={startBatchCategorization}
+                  disabled={categorizing}
+                  className="gap-2"
+                >
+                  {categorizing ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <WandSparkles className="h-4 w-4" />
+                  )}
+                  {categorizing ? 'Processing Batch...' : 'Start Batch Analysis'}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h4 className="font-medium">Batch {currentBatch + 1} of {totalBatches}</h4>
+                    <p className="text-xs text-muted-foreground">Review and select changes to apply</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Badge variant="secondary">
+                      {
+                        categorySuggestions.filter(
+                          (s) => s.suggestedCategory !== s.currentCategory
+                        ).length
+                      }{" "}
+                      changes
+                    </Badge>
+                    {categorySuggestions.filter(s => s.suggestedCategory !== s.currentCategory).length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const changeIds = categorySuggestions
+                            .filter(s => s.suggestedCategory !== s.currentCategory)
+                            .map(s => s.id);
+                          setSelectedSuggestions(new Set(changeIds));
+                        }}
+                      >
+                        Select All
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="max-h-96 space-y-2">
+                  {categorySuggestions.map((suggestion) => {
+                    const resource = allResources.find(
+                      (r) => r.id === suggestion.id
+                    );
+                    const hasChange =
+                      suggestion.suggestedCategory !==
+                      suggestion.currentCategory;
+
+                    return (
+                      <div
+                        key={suggestion.id}
+                        className={`p-3 border rounded-lg ${
+                          hasChange
+                            ? "border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-950"
+                            : "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950"
+                        }`}
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {hasChange && (
+                              <Checkbox
+                                checked={selectedSuggestions.has(suggestion.id)}
+                                onCheckedChange={() => toggleSuggestionSelection(suggestion.id)}
+                                className="flex-shrink-0"
+                              />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <h5 className="font-medium text-sm truncate">
+                                {resource?.name}
+                              </h5>
+                              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                <Badge variant="outline" className="text-xs flex-shrink-0">
+                                  {suggestion.currentCategory}{resource?.subcategory ? ` > ${resource.subcategory}` : ''}
+                                </Badge>
+                                {hasChange && (
+                                  <>
+                                    <span className="text-xs text-muted-foreground flex-shrink-0">
+                                      →
+                                    </span>
+                                    <Badge className="text-xs flex-shrink-0">
+                                      {suggestion.suggestedCategory}{(suggestion as any).suggestedSubcategory ? ` > ${(suggestion as any).suggestedSubcategory}` : ''}
+                                    </Badge>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {hasChange ? (
+                              <Badge variant="secondary" className="text-xs">
+                                Change
+                              </Badge>
+                            ) : (
+                              <Badge variant="default" className="text-xs">
+                                Correct
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </SimpleKitModalBody>
+
+          {categorySuggestions.length > 0 && (
+            <SimpleKitModalFooter>
+              <div className="flex gap-2 w-full">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    if (currentBatch + 1 < totalBatches) {
+                      proceedToNextBatch();
+                    } else {
+                      resetBatchState();
+                      setShowBulkCategorize(false);
+                    }
+                  }}
+                  className="flex-1"
+                >
+                  {currentBatch + 1 < totalBatches ? 'Skip Batch' : 'Cancel'}
+                </Button>
+                <Button
+                  onClick={applySelectedSuggestions}
+                  className="flex-1"
+                >
+                  {currentBatch + 1 < totalBatches 
+                    ? `Apply & Next Batch (${selectedSuggestions.size})` 
+                    : `Apply & Finish (${selectedSuggestions.size})`
+                  }
+                </Button>
+              </div>
+            </SimpleKitModalFooter>
+          )}
         </SimpleKitModalContent>
       </SimpleKitModal>
 

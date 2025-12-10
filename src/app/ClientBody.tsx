@@ -16,7 +16,7 @@ export default function ClientBody({
 
   return (
     <div className="antialiased">
-      <SmoothScroll />
+      {/* <SmoothScroll /> */}
       {children}
     </div>
   );
