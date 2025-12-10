@@ -151,6 +151,8 @@ export default function AdminPage() {
   const [resourcesLoading, setResourcesLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loadingStage, setLoadingStage] = useState('Authenticating');
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loggingIn, setLoggingIn] = useState(false);
@@ -241,6 +243,8 @@ export default function AdminPage() {
   const fetchResources = useCallback(async () => {
     try {
       setResourcesLoading(true);
+      setLoadingStage('Loading Resources');
+      setLoadingProgress(40);
       const supabase = createClient();
       const { data, error } = await supabase
         .from("resources")
@@ -249,6 +253,7 @@ export default function AdminPage() {
 
       if (error) throw error;
       setAllResources(data || []);
+      setLoadingProgress(70);
     } catch (error) {
       console.error("Error fetching resources:", error);
     } finally {
@@ -259,6 +264,8 @@ export default function AdminPage() {
   const fetchCategories = useCallback(async () => {
     try {
       setCategoriesLoading(true);
+      setLoadingStage('Loading Categories');
+      setLoadingProgress(85);
       const supabase = createClient();
       const [categoriesRes, subcategoriesRes] = await Promise.all([
         supabase.from("categories").select("*").order("name"),
@@ -273,6 +280,7 @@ export default function AdminPage() {
       if (categoriesRes.data?.[0]) {
         setSelectedCategoryForSub(categoriesRes.data[0].id);
       }
+      setLoadingProgress(95);
     } catch (error) {
       console.error("Error fetching categories:", error);
     } finally {
@@ -337,8 +345,13 @@ export default function AdminPage() {
   }, [isAuthenticated, fetchResources, fetchCategories]);
 
   useEffect(() => {
-    setLoading(resourcesLoading || categoriesLoading);
-  }, [resourcesLoading, categoriesLoading]);
+    const isLoading = resourcesLoading || categoriesLoading;
+    setLoading(isLoading);
+    if (!isLoading && isAuthenticated) {
+      setLoadingStage('Ready');
+      setLoadingProgress(100);
+    }
+  }, [resourcesLoading, categoriesLoading, isAuthenticated]);
 
   const getSubcategoriesForCategory = (categoryId: string) => {
     return subcategories.filter((sub) => sub.category_id === categoryId);
@@ -406,11 +419,15 @@ export default function AdminPage() {
   }
 
   async function checkAuth() {
+    setLoadingStage('Authenticating');
+    setLoadingProgress(10);
     const supabase = createClient();
     const { data } = await supabase.auth.getSession();
     setIsAuthenticated(!!data.session);
     if (!data.session) {
       setLoading(false);
+    } else {
+      setLoadingProgress(25);
     }
   }
 
@@ -720,8 +737,125 @@ export default function AdminPage() {
 
   if (loading) {
     return (
-      <div className="container py-8 flex items-center justify-center min-h-[calc(100vh-4rem)]">
-        <p>Loading...</p>
+      <div className="container py-8 max-w-7xl min-h-[calc(100vh-4rem)]">
+        {/* Enhanced Loading Screen */}
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.5 }}
+            className="text-center space-y-6"
+          >
+            <div className="relative">
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                className="w-16 h-16 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center"
+              >
+                <Settings className="h-8 w-8 text-primary" />
+              </motion.div>
+              <motion.div
+                animate={{ scale: [1, 1.2, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="absolute inset-0 w-16 h-16 mx-auto bg-primary/5 rounded-full"
+              />
+            </div>
+            
+            <div className="space-y-3">
+              <h2 className="font-heading text-2xl font-bold">Loading Admin Dashboard</h2>
+              <motion.p
+                key={loadingStage}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-muted-foreground"
+              >
+                {loadingStage}...
+              </motion.p>
+            </div>
+            
+            <div className="w-80 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">{loadingStage}</span>
+                <span className="text-muted-foreground">{loadingProgress}%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-2">
+                <motion.div
+                  className="bg-primary h-2 rounded-full"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${loadingProgress}%` }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+        
+        {/* Skeleton Dashboard */}
+        <div className="space-y-8 opacity-30">
+          {/* Header Skeleton */}
+          <div className="flex justify-between items-center">
+            <div className="space-y-3">
+              <div className="h-8 bg-muted rounded w-64 animate-pulse" />
+              <div className="h-4 bg-muted rounded w-48 animate-pulse" />
+              <div className="flex gap-4">
+                <div className="h-3 bg-muted rounded w-20 animate-pulse" />
+                <div className="h-3 bg-muted rounded w-24 animate-pulse" />
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-9 bg-muted rounded w-24 animate-pulse" />
+              ))}
+            </div>
+          </div>
+          
+          {/* Filters Skeleton */}
+          <Card className="p-6">
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="h-10 bg-muted rounded flex-1 animate-pulse" />
+                <div className="h-10 bg-muted rounded w-48 animate-pulse" />
+                <div className="h-10 bg-muted rounded w-24 animate-pulse" />
+              </div>
+              <div className="flex justify-between">
+                <div className="flex gap-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-8 bg-muted rounded w-20 animate-pulse" />
+                  ))}
+                </div>
+                <div className="h-4 bg-muted rounded w-32 animate-pulse" />
+              </div>
+            </div>
+          </Card>
+          
+          {/* Resource Cards Skeleton */}
+          <div className="space-y-4">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="p-6">
+                <div className="flex gap-4">
+                  <div className="w-4 h-4 bg-muted rounded animate-pulse" />
+                  <div className="w-20 h-20 bg-muted rounded animate-pulse" />
+                  <div className="flex-1 space-y-3">
+                    <div className="flex justify-between">
+                      <div className="h-5 bg-muted rounded w-48 animate-pulse" />
+                      <div className="flex gap-2">
+                        <div className="h-5 bg-muted rounded w-16 animate-pulse" />
+                        <div className="h-5 bg-muted rounded w-20 animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="h-4 bg-muted rounded w-full animate-pulse" />
+                    <div className="h-4 bg-muted rounded w-3/4 animate-pulse" />
+                    <div className="flex gap-2">
+                      {[1, 2, 3, 4, 5].map((j) => (
+                        <div key={j} className="h-8 bg-muted rounded w-16 animate-pulse" />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
