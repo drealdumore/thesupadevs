@@ -14,41 +14,46 @@ type CategoryPageClientProps = {
   subcategory?: string;
 };
 
-export default function CategoryPageClient({ category, categoryData, subcategory }: CategoryPageClientProps) {
+export default function CategoryPageClient({
+  category,
+  categoryData,
+  subcategory,
+}: CategoryPageClientProps) {
   const [resources, setResources] = useState<Resource[]>([]);
-  const [subcategories, setSubcategories] = useState<{ id: string; name: string; category_id: string }[]>([]);
+  const [subcategories, setSubcategories] = useState<
+    { id: string; name: string; category_id: string }[]
+  >([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
         const supabase = createClient();
-        
+
         let resourceQuery = supabase
           .from("resources")
           .select("*")
           .eq("status", "approved")
           .eq("category", category);
-        
+
         if (subcategory) {
           resourceQuery = resourceQuery.eq("subcategory", subcategory);
         }
-        
+
         const [resourcesRes, subcategoriesRes] = await Promise.all([
           resourceQuery.order("created_at", { ascending: false }),
-          supabase.from("subcategories").select("*").order("name")
+          supabase
+            .from("subcategories")
+            .select("*")
+            .eq("category_id", categoryData.id)
+            .order("name"),
         ]);
 
         if (resourcesRes.error) throw resourcesRes.error;
         if (subcategoriesRes.error) throw subcategoriesRes.error;
-        
+
         setResources(resourcesRes.data || []);
-        
-        const categorySubcategories = subcategoriesRes.data?.filter(
-          sub => sub.category_id === categoryData.id
-        ) || [];
-        setSubcategories(categorySubcategories);
-        
+        setSubcategories(subcategoriesRes.data || []);
       } catch (error) {
         console.error("Error fetching data:", error);
       } finally {
@@ -101,14 +106,18 @@ export default function CategoryPageClient({ category, categoryData, subcategory
         <p className="text-lg text-muted-foreground max-w-3xl">
           {subcategory
             ? `${categoryData.name} resources in the ${subcategory} category`
-            : categoryData.description || `Explore ${categoryData.name} resources and tools.`}
+            : categoryData.description ||
+              `Explore ${categoryData.name} resources and tools.`}
         </p>
       </motion.div>
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-20 bg-muted/30 animate-pulse rounded-lg" />
+            <div
+              key={i}
+              className="h-20 bg-muted/30 animate-pulse rounded-lg"
+            />
           ))}
         </div>
       ) : !subcategory ? (
@@ -119,7 +128,9 @@ export default function CategoryPageClient({ category, categoryData, subcategory
           transition={{ duration: 0.5, delay: 0.3 }}
         >
           {subcategories.map((subcat, index) => {
-            const count = resources.filter(r => r.subcategory === subcat.name).length;
+            const count = resources.filter(
+              (r) => r.subcategory === subcat.name
+            ).length;
 
             return count === 0 ? (
               <motion.div
@@ -133,7 +144,9 @@ export default function CategoryPageClient({ category, categoryData, subcategory
               >
                 <div className="flex-1">
                   <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
-                  <p className="text-xs text-muted-foreground">Be the first! 🎆</p>
+                  <p className="text-xs text-muted-foreground">
+                    Be the first! 🎆
+                  </p>
                 </div>
                 <Plus className="h-4 w-4 text-muted-foreground/50" />
               </motion.div>
@@ -147,7 +160,9 @@ export default function CategoryPageClient({ category, categoryData, subcategory
                 whileTap={{ scale: 0.98 }}
               >
                 <Link
-                  href={`/category/${category}?subcategory=${encodeURIComponent(subcat.name)}`}
+                  href={`/category/${category}?subcategory=${encodeURIComponent(
+                    subcat.name
+                  )}`}
                   className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm block"
                 >
                   <div className="flex-1">

@@ -1,7 +1,7 @@
-require('dotenv').config({ path: '.env.local' });
-const { createClient } = require('@supabase/supabase-js');
-const axios = require('axios');
-const cheerio = require('cheerio');
+require("dotenv").config({ path: ".env.local" });
+const { createClient } = require("@supabase/supabase-js");
+const axios = require("axios");
+const cheerio = require("cheerio");
 
 // Initialize Supabase client
 const supabase = createClient(
@@ -12,15 +12,16 @@ const supabase = createClient(
 async function scrapeMetadata(url) {
   try {
     // Use your local scrape-metadata API
+    const apiBaseUrl = process.env.API_BASE_URL || "http://localhost:3000";
     const response = await axios.get(
-      `http://localhost:3000/api/scrape-metadata?url=${encodeURIComponent(url)}`,
+      `${apiBaseUrl}/api/scrape-metadata?url=${encodeURIComponent(url)}`,
       { timeout: 10000 }
     );
 
     if (response.data.success && response.data.metadata.image) {
       return response.data.metadata.image;
     }
-    
+
     return null;
   } catch (error) {
     console.log(`Failed to scrape ${url}:`, error.message);
@@ -29,16 +30,16 @@ async function scrapeMetadata(url) {
 }
 
 async function backfillImages() {
-  console.log('🚀 Starting image backfill process...\n');
+  console.log("🚀 Starting image backfill process...\n");
 
   // Fetch all resources without images (null, empty string, or missing)
   const { data: resources, error } = await supabase
-    .from('resources')
-    .select('id, name, url, image_url')
-    .or('image_url.is.null,image_url.eq.');
+    .from("resources")
+    .select("id, name, url, image_url")
+    .or("image_url.is.null,image_url.eq.");
 
   if (error) {
-    console.error('Error fetching resources:', error);
+    console.error("Error fetching resources:", error);
     return;
   }
 
@@ -50,7 +51,9 @@ async function backfillImages() {
 
   for (const resource of resources) {
     processed++;
-    console.log(`[${processed}/${resources.length}] Processing: ${resource.name}`);
+    console.log(
+      `[${processed}/${resources.length}] Processing: ${resource.name}`
+    );
     console.log(`URL: ${resource.url}`);
 
     const imageUrl = await scrapeMetadata(resource.url);
@@ -59,12 +62,15 @@ async function backfillImages() {
       console.log(`🖼️  Found image: ${imageUrl.substring(0, 60)}...`);
       // Update the resource with the scraped image
       const { error: updateError } = await supabase
-        .from('resources')
+        .from("resources")
         .update({ image_url: imageUrl })
-        .eq('id', resource.id);
+        .eq("id", resource.id);
 
       if (updateError) {
-        console.log(`❌ Failed to update ${resource.name}:`, updateError.message);
+        console.log(
+          `❌ Failed to update ${resource.name}:`,
+          updateError.message
+        );
         failed++;
       } else {
         console.log(`✅ Updated with image: ${imageUrl}`);
@@ -75,13 +81,13 @@ async function backfillImages() {
       failed++;
     }
 
-    console.log('---');
+    console.log("---");
 
     // Add delay to be respectful to servers
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise((resolve) => setTimeout(resolve, 1000));
   }
 
-  console.log('\n🎉 Backfill complete!');
+  console.log("\n🎉 Backfill complete!");
   console.log(`📊 Results:`);
   console.log(`   • Processed: ${processed}`);
   console.log(`   • Updated: ${updated}`);

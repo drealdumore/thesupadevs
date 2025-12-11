@@ -17,7 +17,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, ArrowUpDown, Check, Clock, Trash2, RefreshCw, AlertTriangle } from "lucide-react";
+import {
+  Search,
+  ArrowUpDown,
+  Check,
+  Clock,
+  Trash2,
+  RefreshCw,
+} from "lucide-react";
 import type { Category } from "@/lib/types/database";
 
 type SortField = "name" | "created_at" | "category" | "status";
@@ -84,7 +91,9 @@ export function FilterControls({
           </div>
           <Select
             value={selectedCategory}
-            onValueChange={(value) => onCategoryChange(value as Category | "all")}
+            onValueChange={(value) =>
+              onCategoryChange(value as Category | "all")
+            }
           >
             <SelectTrigger className="w-full lg:w-48">
               <SelectValue placeholder="Filter by category" />
@@ -108,10 +117,14 @@ export function FilterControls({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => onSortChange("created_at", "desc")}>
+              <DropdownMenuItem
+                onClick={() => onSortChange("created_at", "desc")}
+              >
                 Newest First
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onSortChange("created_at", "asc")}>
+              <DropdownMenuItem
+                onClick={() => onSortChange("created_at", "asc")}
+              >
                 Oldest First
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onSortChange("name", "asc")}>
@@ -145,30 +158,12 @@ export function FilterControls({
               Pending ({counts.pending})
             </Button>
             <Button
-              variant={filter === "approved" ? "default" : "outline"}
-              onClick={() => onFilterChange("approved")}
-              className="text-xs sm:text-sm"
-            >
-              Approved ({counts.approved})
-            </Button>
-            <Button
-              variant={filter === "broken" ? "destructive" : "outline"}
-              onClick={() => onFilterChange("broken")}
-              className="text-xs sm:text-sm"
-            >
-              Broken URLs ({counts.broken})
-            </Button>
-            <Button
-              variant="outline"
               onClick={onCheckBrokenUrls}
               disabled={checkingUrls}
               className="text-xs sm:text-sm gap-1"
             >
-              {checkingUrls ? (
-                <RefreshCw className="h-3 w-3 animate-spin" />
-              ) : (
-                "Check URLs"
-              )}
+              {checkingUrls && <RefreshCw className="h-3 w-3 animate-spin" />}
+              {checkingUrls ? "Checking..." : "Check URLs"}
             </Button>
           </div>
 

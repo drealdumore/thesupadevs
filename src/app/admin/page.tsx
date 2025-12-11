@@ -643,26 +643,37 @@ export default function AdminPage() {
   async function checkBrokenUrls() {
     setCheckingUrls(true);
     const broken = new Set<string>();
+    const controller = new AbortController();
+    const batchSize = 5; // Check 5 URLs concurrently
 
-    for (const resource of allResources) {
-      try {
-        const response = await fetch(
-          `/api/scrape-metadata?url=${encodeURIComponent(resource.url)}`
-        );
-        const data = await response.json();
+    for (let i = 0; i < allResources.length; i += batchSize) {
+      if (controller.signal.aborted) break;
+      const batch = allResources.slice(i, i + batchSize);
 
-        if (!data.success) {
-          broken.add(resource.id);
-        }
-      } catch (error) {
-        broken.add(resource.id);
-      }
+      await Promise.all(
+        batch.map(async (resource) => {
+          try {
+            const response = await fetch(
+              `/api/scrape-metadata?url=${encodeURIComponent(resource.url)}`,
+              { signal: controller.signal }
+            );
+            const data = await response.json();
 
-      // Small delay to avoid overwhelming the server
-      await new Promise((resolve) => setTimeout(resolve, 100));
+            if (!data.success) {
+              broken.add(resource.id);
+            }
+          } catch (error) {
+            if (error instanceof Error && error.name !== "AbortError") {
+              broken.add(resource.id);
+            }
+          }
+        })
+      );
+
+      // Update progress incrementally
+      setBrokenUrls(new Set(broken));
     }
 
-    setBrokenUrls(broken);
     setCheckingUrls(false);
   }
 

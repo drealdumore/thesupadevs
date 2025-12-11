@@ -84,6 +84,7 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
     formState: { errors },
     setValue,
     watch,
+    clearErrors,
     reset,
   } = useForm<ResourceForm>({
     resolver: zodResolver(resourceSchema),
@@ -185,6 +186,17 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   const availableSubcategories = selectedCategoryData
     ? subcategories.filter((s) => s.category_id === selectedCategoryData.id)
     : [];
+
+  // Ensure subcategory is cleared whenever the selected category changes
+  useEffect(() => {
+    // Reset subcategory value and clear any validation errors for it
+    setValue("subcategory", "");
+    try {
+      clearErrors?.("subcategory");
+    } catch (e) {
+      // ignore if clearErrors isn't available for some reason
+    }
+  }, [selectedCategory, setValue, clearErrors]);
 
   const checkDuplicateUrl = async (url: string): Promise<boolean> => {
     try {

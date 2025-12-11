@@ -20,9 +20,9 @@ export function HeroSection() {
           shelf <br className="hidden lg:block" />
           for developers
         </h1>
-        <h3 className="mb-6 font-heading text-2xl font-semibold text-foreground md:text-3xl">
+        <h2 className="mb-6 font-heading text-2xl font-semibold text-foreground md:text-3xl">
           Stop searching everywhere. Start building.
-        </h3>
+        </h2>
         <p className="mb-8 max-w-2xl text-lg text-muted-foreground">
           UI, APIs, tools, and more. Curated for developers.
         </p>

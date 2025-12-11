@@ -44,7 +44,10 @@ type SubcategoryData = {
   created_at: string;
 };
 
-const categoryIcons: Record<string, React.ComponentType<{ className?: string }>> = {
+const categoryIcons: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
   Frontend: Code,
   Backend: Server,
   Fullstack: Layers,
@@ -57,13 +60,19 @@ const categoryIcons: Record<string, React.ComponentType<{ className?: string }>>
 
 const categoryColors: Record<string, string> = {
   Frontend: "bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-800",
-  Backend: "bg-green-500/10 text-green-600 border-green-200 dark:border-green-800",
-  Fullstack: "bg-purple-500/10 text-purple-600 border-purple-200 dark:border-purple-800",
-  DevOps: "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800",
+  Backend:
+    "bg-green-500/10 text-green-600 border-green-200 dark:border-green-800",
+  Fullstack:
+    "bg-purple-500/10 text-purple-600 border-purple-200 dark:border-purple-800",
+  DevOps:
+    "bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-800",
   Design: "bg-pink-500/10 text-pink-600 border-pink-200 dark:border-pink-800",
-  Tools: "bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:border-yellow-800",
-  Learning: "bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800",
-  Wallpaper: "bg-teal-500/10 text-teal-600 border-teal-200 dark:border-teal-800",
+  Tools:
+    "bg-yellow-500/10 text-yellow-600 border-yellow-200 dark:border-yellow-800",
+  Learning:
+    "bg-indigo-500/10 text-indigo-600 border-indigo-200 dark:border-indigo-800",
+  Wallpaper:
+    "bg-teal-500/10 text-teal-600 border-teal-200 dark:border-teal-800",
 };
 
 export default function HomePageClient() {
@@ -97,7 +106,7 @@ export default function HomePageClient() {
       const supabase = createClient();
       const [categoriesRes, subcategoriesRes] = await Promise.all([
         supabase.from("categories").select("*").order("name"),
-        supabase.from("subcategories").select("*").order("name")
+        supabase.from("subcategories").select("*").order("name"),
       ]);
 
       if (categoriesRes.error) throw categoriesRes.error;
@@ -111,9 +120,9 @@ export default function HomePageClient() {
   }
 
   const getSubcategoriesForCategory = (categoryName: string) => {
-    const category = categories.find(c => c.name === categoryName);
+    const category = categories.find((c) => c.name === categoryName);
     if (!category) return [];
-    return subcategories.filter(sub => sub.category_id === category.id);
+    return subcategories.filter((sub) => sub.category_id === category.id);
   };
 
   async function fetchResources() {
@@ -243,7 +252,9 @@ export default function HomePageClient() {
         ) : activeCategory === "All" ? (
           categories.map((category, categoryIndex) => {
             const popular = getMostPopularSubcategory(category.name);
-            const categorySubcategories = getSubcategoriesForCategory(category.name);
+            const categorySubcategories = getSubcategoriesForCategory(
+              category.name
+            );
             return (
               <motion.div
                 key={category.id}
@@ -256,7 +267,11 @@ export default function HomePageClient() {
                 transition={{ duration: 0.5, delay: categoryIndex * 0.1 }}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${categoryColors[category.name]}`}>
+                  <div
+                    className={`p-2 rounded-lg ${
+                      categoryColors[category.name]
+                    }`}
+                  >
                     {React.createElement(categoryIcons[category.name] || Code, {
                       className: "h-5 w-5",
                     })}
@@ -265,7 +280,10 @@ export default function HomePageClient() {
                     {category.name}
                   </h2>
                   <span className="px-2 py-1 text-xs bg-muted rounded-full text-muted-foreground">
-                    {resources.filter((r) => r.category === category.name).length}{" "}
+                    {
+                      resources.filter((r) => r.category === category.name)
+                        .length
+                    }{" "}
                     resources
                   </span>
                 </div>
@@ -280,14 +298,19 @@ export default function HomePageClient() {
                 >
                   {categorySubcategories.map((subcat, subcatIndex) => {
                     const count = resources.filter(
-                      (r) => r.category === category.name && r.subcategory === subcat.name
+                      (r) =>
+                        r.category === category.name &&
+                        r.subcategory === subcat.name
                     ).length;
                     const isPopular =
-                      popular && subcat.name === popular.subcat && popular.count > 5;
+                      popular &&
+                      subcat.name === popular.subcat &&
+                      popular.count > 5;
                     const resourcesInSubcat = resources
                       .filter(
                         (r) =>
-                          r.category === category.name && r.subcategory === subcat.name
+                          r.category === category.name &&
+                          r.subcategory === subcat.name
                       )
                       .slice(0, 3);
 
@@ -305,7 +328,9 @@ export default function HomePageClient() {
                         whileHover={{ scale: 1.02 }}
                       >
                         <div className="flex-1">
-                          <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
+                          <h3 className="font-medium text-sm mb-1">
+                            {subcat.name}
+                          </h3>
                           <p className="text-xs text-muted-foreground">
                             Be the first! 🎆
                           </p>
@@ -325,10 +350,10 @@ export default function HomePageClient() {
                         whileTap={{ scale: 0.98 }}
                       >
                         <Link
-                          href={`/category/${category.name}?subcategory=${encodeURIComponent(
-                            subcat.name
-                          )}`}
-                          className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm block"
+                          href={`/category/${
+                            category.name
+                          }?subcategory=${encodeURIComponent(subcat.name)}`}
+                          className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm"
                           title={resourcesInSubcat
                             .map((r) => r.name)
                             .join(", ")}
@@ -378,12 +403,14 @@ export default function HomePageClient() {
               {getSubcategoriesForCategory(activeCategory).map((subcat) => {
                 const count = resources.filter(
                   (r) =>
-                    r.category === activeCategory && r.subcategory === subcat.name
+                    r.category === activeCategory &&
+                    r.subcategory === subcat.name
                 ).length;
                 const resourcesInSubcat = resources
                   .filter(
                     (r) =>
-                      r.category === activeCategory && r.subcategory === subcat.name
+                      r.category === activeCategory &&
+                      r.subcategory === subcat.name
                   )
                   .slice(0, 3);
 
@@ -394,7 +421,9 @@ export default function HomePageClient() {
                     title="No resources yet - be the first to add one!"
                   >
                     <div className="flex-1">
-                      <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
+                      <h3 className="font-medium text-sm mb-1">
+                        {subcat.name}
+                      </h3>
                       <p className="text-xs text-muted-foreground">
                         Be the first! 🎆
                       </p>
@@ -419,7 +448,9 @@ export default function HomePageClient() {
                       </div>
                     )}
                     <div className="flex-1">
-                      <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
+                      <h3 className="font-medium text-sm mb-1">
+                        {subcat.name}
+                      </h3>
                       <p className="text-xs text-muted-foreground">
                         {count} {count === 1 ? "resource" : "resources"}
                       </p>

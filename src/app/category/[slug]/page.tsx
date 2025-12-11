@@ -13,11 +13,16 @@ export async function generateMetadata({ params, searchParams }: Props): Promise
   const { subcategory } = await searchParams;
   
   const supabase = createClient();
-  const { data: categoryData } = await supabase
+  const { data: categoryData, error } = await supabase
     .from("categories")
     .select("*")
     .eq("name", slug)
     .single();
+
+  if (error) {
+    console.error("Supabase error fetching category metadata:", error);
+    throw new Error("Failed to fetch category metadata");
+  }
 
   if (!categoryData) {
     return {
@@ -75,7 +80,12 @@ export default async function CategoryPage({ params, searchParams }: Props) {
     .eq("name", slug)
     .single();
 
-  if (error || !categoryData) {
+  if (error) {
+    console.error("Supabase error fetching category:", error);
+    throw new Error("Failed to fetch category");
+  }
+
+  if (!categoryData) {
     notFound();
   }
 
