@@ -12,53 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, ChevronRight, ArrowRight, TrendingUp } from "lucide-react";
 import Link from "next/link";
 
-const subcategories: Record<Category, string[]> = {
-  Frontend: ["Motion", "State Management", "Styling", "UI Libraries", "Forms"],
-  Backend: ["APIs", "Databases", "Authentication", "Serverless", "ORMs"],
-  Fullstack: ["Frameworks", "Boilerplates", "CMS", "Hosting"],
-  DevOps: ["CI/CD", "Containers", "Monitoring", "Cloud", "Version Control"],
-  Design: ["Prototyping", "Icons", "Colors", "Fonts", "Illustrations"],
-  Tools: ["Editors", "Extensions", "CLI", "Package Managers", "Testing"],
-  Learning: ["Documentation", "Tutorials", "Courses", "Books", "Blogs"],
-};
 
-const categoryInfo: Record<Category, { title: string; description: string }> = {
-  Frontend: {
-    title: "Frontend",
-    description:
-      "A growing collection of frontend components, libraries, and tools built with React, Vue, Angular and more.",
-  },
-  Backend: {
-    title: "Backend",
-    description:
-      "A curated collection of backend tools, APIs, databases, and serverless solutions for modern development.",
-  },
-  Fullstack: {
-    title: "Fullstack",
-    description:
-      "Complete application frameworks and boilerplates for rapid full-stack development.",
-  },
-  DevOps: {
-    title: "DevOps",
-    description:
-      "Essential DevOps tools for CI/CD, containers, monitoring, and cloud infrastructure.",
-  },
-  Design: {
-    title: "Design",
-    description:
-      "Design resources including UI/UX tools, icons, colors, fonts, and illustrations.",
-  },
-  Tools: {
-    title: "Tools",
-    description:
-      "Development utilities, editors, extensions, CLI tools, and testing frameworks.",
-  },
-  Learning: {
-    title: "Learning",
-    description:
-      "Educational resources including documentation, tutorials, courses, and books.",
-  },
-};
 
 export default function CategoryPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ subcategory?: string }> }) {
   return <CategoryPageWrapper params={params} searchParams={searchParams} />;
@@ -67,6 +21,8 @@ export default function CategoryPage({ params, searchParams }: { params: Promise
 function CategoryPageWrapper({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ subcategory?: string }> }) {
   const [resolvedParams, setResolvedParams] = useState<{ slug: string } | null>(null);
   const [resolvedSearchParams, setResolvedSearchParams] = useState<{ subcategory?: string } | null>(null);
+  const [categoryData, setCategoryData] = useState<{ id: string; name: string; description?: string } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([params, searchParams]).then(([p, sp]) => {
@@ -75,49 +31,97 @@ function CategoryPageWrapper({ params, searchParams }: { params: Promise<{ slug:
     });
   }, [params, searchParams]);
 
-  if (!resolvedParams || !resolvedSearchParams) {
+  useEffect(() => {
+    if (resolvedParams) {
+      fetchCategoryData(resolvedParams.slug);
+    }
+  }, [resolvedParams]);
+
+  const fetchCategoryData = async (categoryName: string) => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("name", categoryName)
+        .single();
+
+      if (error || !data) {
+        notFound();
+        return;
+      }
+
+      setCategoryData(data);
+    } catch (error) {
+      console.error("Error fetching category:", error);
+      notFound();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!resolvedParams || !resolvedSearchParams || loading) {
     return <div>Loading...</div>;
   }
 
-  const category = resolvedParams.slug as Category;
-  const info = categoryInfo[category];
-
-  if (!info) {
+  if (!categoryData) {
     notFound();
+    return null;
   }
 
-  return <CategoryPageClient category={category} info={info} subcategory={resolvedSearchParams.subcategory} />;
+  return <CategoryPageClient category={categoryData.name} categoryData={categoryData} subcategory={resolvedSearchParams.subcategory} />;
 }
 
-function CategoryPageClient({ category, info, subcategory }: { category: Category; info: { title: string; description: string }; subcategory?: string }) {
+function CategoryPageClient({ category, categoryData, subcategory }: { category: string; categoryData: { id: string; name: string; description?: string }; subcategory?: string }) {
   const [resources, setResources] = useState<Resource[]>([]);
+  const [subcategories, setSubcategories] = useState<{ id: string; name: string; category_id: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchResources() {
+    async function fetchData() {
       try {
         const supabase = createClient();
-        let query = supabase
+        
+        // Fetch resources
+        let resourceQuery = supabase
           .from("resources")
           .select("*")
           .eq("status", "approved")
           .eq("category", category);
         
         if (subcategory) {
-          query = query.eq("subcategory", subcategory);
+          resourceQuery = resourceQuery.eq("subcategory", subcategory);
         }
         
-        const { data, error } = await query.order("created_at", { ascending: false });
+        // Fetch category and subcategories from database tables
+        const [resourcesRes, categoriesRes, subcategoriesRes] = await Promise.all([
+          resourceQuery.order("created_at", { ascending: false }),
+          supabase.from("categories").select("*").eq("name", category),
+          supabase.from("subcategories").select("*").order("name")
+        ]);
 
-        if (error) throw error;
-        setResources(data || []);
+        if (resourcesRes.error) throw resourcesRes.error;
+        if (categoriesRes.error) throw categoriesRes.error;
+        if (subcategoriesRes.error) throw subcategoriesRes.error;
+        
+        setResources(resourcesRes.data || []);
+        
+        // Get subcategories for this category
+        const categoryData = categoriesRes.data?.[0];
+        if (categoryData) {
+          const categorySubcategories = subcategoriesRes.data?.filter(
+            sub => sub.category_id === categoryData.id
+          ) || [];
+          setSubcategories(categorySubcategories);
+        }
+        
       } catch (error) {
-        console.error("Error fetching resources:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     }
-    fetchResources();
+    fetchData();
   }, [category, subcategory]);
 
   return (
@@ -141,7 +145,7 @@ function CategoryPageClient({ category, info, subcategory }: { category: Categor
           href={`/category/${category}`}
           className="hover:text-foreground transition-colors"
         >
-          {info.title}
+          {categoryData.name}
         </Link>
         {subcategory && (
           <>
@@ -158,18 +162,18 @@ function CategoryPageClient({ category, info, subcategory }: { category: Categor
         transition={{ duration: 0.5, delay: 0.2 }}
       >
         <h1 className="font-heading text-4xl font-bold tracking-tight md:text-5xl">
-          {subcategory || info.title}
+          {subcategory || categoryData.name}
         </h1>
         <p className="text-lg text-muted-foreground max-w-3xl">
           {subcategory
-            ? `${info.title} resources in the ${subcategory} category`
-            : info.description}
+            ? `${categoryData.name} resources in the ${subcategory} category`
+            : categoryData.description || `Explore ${categoryData.name} resources and tools.`}
         </p>
       </motion.div>
 
       {loading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[...Array(subcategory ? 6 : subcategories[category].length)].map(
+          {[...Array(subcategory ? 6 : 6)].map(
             (_, i) => (
               <div
                 key={i}
@@ -188,17 +192,17 @@ function CategoryPageClient({ category, info, subcategory }: { category: Categor
           animate={{ opacity: 1 }}
           transition={{ duration: 0.5, delay: 0.3 }}
         >
-          {subcategories[category].map((subcat, index) => {
+          {subcategories.map((subcat, index) => {
             const count = resources.filter(
-              (r) => r.subcategory === subcat
+              (r) => r.subcategory === subcat.name
             ).length;
             const resourcesInSubcat = resources
-              .filter((r) => r.subcategory === subcat)
+              .filter((r) => r.subcategory === subcat.name)
               .slice(0, 3);
 
             return count === 0 ? (
               <motion.div
-                key={subcat}
+                key={subcat.id}
                 className="group flex items-center justify-between p-4 rounded-lg border bg-muted/20 border-dashed opacity-60 hover:opacity-80 transition-opacity"
                 title="No resources yet - be the first to add one!"
                 initial={{ opacity: 0, y: 20 }}
@@ -207,7 +211,7 @@ function CategoryPageClient({ category, info, subcategory }: { category: Categor
                 whileHover={{ scale: 1.02 }}
               >
                 <div className="flex-1">
-                  <h3 className="font-medium text-sm mb-1">{subcat}</h3>
+                  <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
                   <p className="text-xs text-muted-foreground">
                     Be the first! 🎆
                   </p>
@@ -216,7 +220,7 @@ function CategoryPageClient({ category, info, subcategory }: { category: Categor
               </motion.div>
             ) : (
               <motion.div
-                key={subcat}
+                key={subcat.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.4 + index * 0.1 }}
@@ -225,13 +229,13 @@ function CategoryPageClient({ category, info, subcategory }: { category: Categor
               >
                 <Link
                   href={`/category/${category}?subcategory=${encodeURIComponent(
-                    subcat
+                    subcat.name
                   )}`}
                   className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm block"
                   title={resourcesInSubcat.map((r) => r.name).join(", ")}
                 >
                   <div className="flex-1">
-                    <h3 className="font-medium text-sm mb-1">{subcat}</h3>
+                    <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
                     <p className="text-xs text-muted-foreground">
                       {count} {count === 1 ? "resource" : "resources"}
                     </p>

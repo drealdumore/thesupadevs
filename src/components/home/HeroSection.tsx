@@ -5,13 +5,13 @@ import { Zap } from "lucide-react";
 
 export function HeroSection() {
   return (
-    <div className="flex flex-col border-b border-border items-center gap-12 lg:flex-row lg:gap-24">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex-1 text-left"
-      >
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="flex flex-col border-b border-border items-center gap-12 lg:flex-row lg:gap-24"
+    >
+      <div className="flex-1 text-left">
         <h1 className="mb-6 font-heading text-4xl font-bold tracking-tight text-foreground md:text-6xl">
           The curated{" "}
           <span className="inline-flex shrink-0 rotate-3 items-center justify-center rounded-xl bg-zinc-900 p-2 align-middle text-white dark:bg-white dark:text-black">
@@ -24,7 +24,7 @@ export function HeroSection() {
           A comprehensive collection of buttons, cards, tools, and resources
           for frontend and backend.
         </p>
-      </motion.div>
-    </div>
+      </div>
+    </motion.div>
   );
 }

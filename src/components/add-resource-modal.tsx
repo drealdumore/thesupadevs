@@ -33,25 +33,7 @@ import {
 } from "@/components/ui/simple-kit-modal";
 
 
-const categories: Category[] = [
-  "Frontend",
-  "Backend",
-  "Fullstack",
-  "DevOps",
-  "Design",
-  "Tools",
-  "Learning",
-];
 
-const subcategories: Record<Category, string[]> = {
-  Frontend: ["Motion", "State Management", "Styling", "UI Libraries", "Forms"],
-  Backend: ["APIs", "Databases", "Authentication", "Serverless", "ORMs"],
-  Fullstack: ["Frameworks", "Boilerplates", "CMS", "Hosting"],
-  DevOps: ["CI/CD", "Containers", "Monitoring", "Cloud", "Version Control"],
-  Design: ["Prototyping", "Icons", "Colors", "Fonts", "Illustrations"],
-  Tools: ["Editors", "Extensions", "CLI", "Package Managers", "Testing"],
-  Learning: ["Documentation", "Tutorials", "Courses", "Books", "Blogs"],
-};
 
 const resourceSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -83,6 +65,8 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   const [showSkip, setShowSkip] = useState(false);
   const [skipTimer, setSkipTimer] = useState<NodeJS.Timeout | null>(null);
   const [lastScrapedUrl, setLastScrapedUrl] = useState<string>("");
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [subcategories, setSubcategories] = useState<{ id: string; name: string; category_id: string }[]>([]);
 
   const {
     register,
@@ -120,9 +104,11 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
     }
   };
 
-  // Load draft from localStorage
+  // Fetch categories and subcategories
   useEffect(() => {
     if (open) {
+      fetchCategoriesAndSubcategories();
+      
       const draft = localStorage.getItem("resource-draft");
       if (draft) {
         try {
@@ -142,6 +128,24 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
     }
   }, [open, setValue]);
 
+  const fetchCategoriesAndSubcategories = async () => {
+    try {
+      const supabase = createClient();
+      const [categoriesRes, subcategoriesRes] = await Promise.all([
+        supabase.from("categories").select("*").order("name"),
+        supabase.from("subcategories").select("*").order("name")
+      ]);
+
+      if (categoriesRes.error) throw categoriesRes.error;
+      if (subcategoriesRes.error) throw subcategoriesRes.error;
+
+      setCategories(categoriesRes.data || []);
+      setSubcategories(subcategoriesRes.data || []);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
   // Save draft to localStorage
   useEffect(() => {
     if (open) {
@@ -159,7 +163,11 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
     }
   }, [watch, urlValue, tags, open]);
 
-  const selectedCategory = watch("category") as Category | undefined;
+  const selectedCategory = watch("category");
+  const selectedCategoryData = categories.find(c => c.name === selectedCategory);
+  const availableSubcategories = selectedCategoryData 
+    ? subcategories.filter(s => s.category_id === selectedCategoryData.id)
+    : [];
 
   const checkDuplicateUrl = async (url: string): Promise<boolean> => {
     try {
@@ -405,8 +413,8 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {cat}
+                      <SelectItem key={cat.id} value={cat.name}>
+                        {cat.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -418,7 +426,7 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                 )}
               </div>
 
-              {selectedCategory && (
+              {selectedCategory && availableSubcategories.length > 0 && (
                 <div className="space-y-2">
                   <Label htmlFor="subcategory">Subcategory</Label>
                   <Select
@@ -428,9 +436,9 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                       <SelectValue placeholder="Select a subcategory (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      {subcategories[selectedCategory].map((subcat) => (
-                        <SelectItem key={subcat} value={subcat}>
-                          {subcat}
+                      {availableSubcategories.map((subcat) => (
+                        <SelectItem key={subcat.id} value={subcat.name}>
+                          {subcat.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
