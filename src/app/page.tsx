@@ -30,18 +30,12 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       url: "https://thesupadevs.vercel.app",
       siteName: "TheSupaDevs",
-      images: [{
-        url: "/og-home.png",
-        width: 1200,
-        height: 630,
-        alt: `TheSupaDevs - ${resourceCount}+ Curated Developer Resources`
-      }]
+      
     },
     twitter: {
       card: "summary_large_image",
       title: `TheSupaDevs - ${resourceCount}+ Curated Developer Resources`,
       description: `Discover ${resourceCount}+ curated developer resources across ${categoryCount} categories for modern web development.`,
-      images: ["/og-home.png"]
     },
     alternates: {
       canonical: "https://thesupadevs.vercel.app"
