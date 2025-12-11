@@ -6,32 +6,43 @@ import { Header } from "@/components/header";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "TheSupaDev - Discover & Share Developer Resources",
-  description: "A curated collection of tools, libraries, and resources for developers. Built by developers, for developers.",
-  keywords: ["developer resources", "tools", "libraries", "programming", "thesupadev"],
-  authors: [{ name: "TheSupaDev" }],
+  title: "TheSupaDevs - Stop searching everywhere. Start building.",
+  description:
+    "A curated collection of tools, libraries, and resources for developers. Built by developers, for developers.",
+  keywords: [
+    "developer resources",
+    "tools",
+    "libraries",
+    "programming",
+    "TheSupaDevs",
+  ],
+  authors: [{ name: "TheSupaDevs" }],
   openGraph: {
-    title: "TheSupaDev - Developer Resource Library",
-    description: "A curated collection of tools, libraries, and resources for developers. Built by developers, for developers.",
+    title: "TheSupaDevs - Developer Resource Library",
+    description:
+      "A curated collection of tools, libraries, and resources for developers. Built by developers, for developers.",
     type: "website",
-    siteName: "TheSupaDev",
-    images: [{
-      url: "/og-image.png",
-      width: 1200,
-      height: 630,
-      alt: "TheSupaDev - Developer Resources"
-    }]
+    siteName: "TheSupaDevs",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "TheSupaDevs - Developer Resources",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "TheSupaDev - Developer Resource Library",
-    description: "A curated collection of tools, libraries, and resources for developers.",
-    images: ["/og-image.png"]
+    title: "TheSupaDevs - Developer Resource Library",
+    description:
+      "A curated collection of tools, libraries, and resources for developers.",
+    images: ["/og-image.png"],
   },
   robots: {
     index: true,
-    follow: true
-  }
+    follow: true,
+  },
 };
 
 export default function RootLayout({
