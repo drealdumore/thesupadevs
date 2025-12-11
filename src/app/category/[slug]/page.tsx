@@ -162,11 +162,18 @@ export async function generateMetadata({
           )}`
         : `https://thesupadevs.vercel.app/category/${slug}`,
       siteName: "TheSupaDevs",
+      images: [{
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: `${baseTitle} - TheSupaDevs`
+      }]
     },
     twitter: {
       card: "summary_large_image",
       title: baseTitle,
       description: baseDescription.slice(0, 160),
+      images: ["/opengraph-image.png"]
     },
     alternates: {
       canonical: subcategory

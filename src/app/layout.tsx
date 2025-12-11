@@ -47,6 +47,12 @@ export const metadata: Metadata = {
     title: "TheSupaDevs - Curated Developer Resources & Tools Library",
     description:
       "Discover 1000+ curated developer resources, tools, libraries, and guides. From React frameworks to DevOps tools - everything developers need.",
+    images: [{
+      url: "/opengraph-image.png",
+      width: 1200,
+      height: 630,
+      alt: "TheSupaDevs - Curated Developer Resources Library"
+    }]
   },
   twitter: {
     card: "summary_large_image",
@@ -55,6 +61,7 @@ export const metadata: Metadata = {
     title: "TheSupaDevs - Curated Developer Resources & Tools Library",
     description:
       "Discover 1000+ curated developer resources, tools, libraries, and guides for modern web development.",
+    images: ["/opengraph-image.png"]
   },
   robots: {
     index: true,
