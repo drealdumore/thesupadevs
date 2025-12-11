@@ -75,6 +75,10 @@ export const metadata: Metadata = {
   alternates: {
     canonical: "https://thesupadevs.vercel.app",
   },
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+  },
   other: {
     "theme-color": "#000000",
     "color-scheme": "dark",
