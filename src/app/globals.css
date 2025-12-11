@@ -59,6 +59,12 @@
   .font-heading {
     font-family: 'Sora', 'Inter', system-ui, sans-serif;
   }
+  ::selection {
+    @apply bg-primary text-primary-foreground;
+  }
+  ::-moz-selection {
+    @apply bg-primary text-primary-foreground;
+  }
 }
 
 /* Global scrollbar styles */

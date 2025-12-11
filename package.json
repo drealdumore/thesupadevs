@@ -1,20 +1,31 @@
 {
-  "name": "nextjs-shadcn",
-  "version": "0.1.0",
-  "private": true,
+  "name": "thesupadevs",
+  "version": "1.0.0",
+  "description": "A sleek, modern open-source web application where developers can discover and share 1000+ curated resources",
+  "author": "Samuel Isah (https://x.com/drealdumore)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/drealdumore/thesupadevs.git"
+  },
+  "homepage": "https://thesupadevs.vercel.app",
+  "keywords": [
+    "developer-resources",
+    "nextjs",
+    "typescript",
+    "supabase",
+    "tailwindcss",
+    "framer-motion",
+    "open-source",
+    "curated-resources",
+    "developer-tools"
+  ],
+  "private": false,
   "scripts": {
     "dev": "next dev -H 0.0.0.0 --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "backfill-images": "node scripts/backfill-images.js",
-    "clean-urls": "node scripts/clean-urls.js",
-    "import-extensions": "node scripts/import-extensions.js",
-    "cleanup-broken-urls": "node scripts/cleanup-broken-urls.js",
-    "delete-ref-urls": "node scripts/delete-ref-urls.js",
-    "add-programming-resources": "node scripts/add-programming-resources.js",
-    "add-database-cloud-resources": "node scripts/add-database-cloud-resources.js",
-    "force-rescrape-images": "node scripts/force-rescrape-images.js"
+    "lint": "next lint"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

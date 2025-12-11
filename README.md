@@ -1,8 +1,14 @@
 # TheSupaDevs - Curated Developer Resources
 
-A sleek, modern web application where developers can discover and share 1000+ curated resources. Built with enterprise-level SEO optimization and buttery smooth animations.
+[![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
+[![Open Source](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://opensource.org/)
+[![Made with Next.js](https://img.shields.io/badge/Made%20with-Next.js-000000?logo=next.js)](https://nextjs.org/)
+
+A sleek, modern **open-source** web application where developers can discover and share 1000+ curated resources. Built with enterprise-level SEO optimization and buttery smooth animations.
 
 🌐 **Live Demo**: [thesupadevs.vercel.app](https://thesupadevs.vercel.app)
+🤝 **Contributing**: [See CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## ✨ Features
 
@@ -12,6 +18,7 @@ A sleek, modern web application where developers can discover and share 1000+ cu
 - **Lenis Smooth Scrolling**: Premium scrolling experience throughout the app
 - **Responsive Design**: Works beautifully on all devices
 - **Loading States**: Skeleton loaders for smooth UX
+- **Open Source Badge**: Prominent GitHub link in hero section
 
 ### 🚀 **Core Features**
 - **1000+ Curated Resources**: Browse by Frontend, Backend, DevOps, Design, Tools, and Learning
@@ -186,7 +193,8 @@ thesupadevs/
 │   ├── robots.txt                    # SEO robots file
 │   ├── manifest.json                 # PWA manifest
 │   └── opengraph-image.png           # Social media image
-└── scripts/                          # Utility scripts
+├── .github/                          # GitHub templates
+└── CONTRIBUTING.md                   # Contribution guidelines
 ```
 
 ## 🚀 Deployment
@@ -204,6 +212,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ## 📝 Available Scripts
 
+### Development
 - `pnpm dev` - Development server with Turbopack
 - `pnpm build` - Production build
 - `pnpm start` - Production server
@@ -224,19 +233,58 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
+**We welcome contributions!** TheSupaDevs is open source and we'd love your help making it better.
+
+### Quick Start
+1. **Fork** the repository
+2. **Clone** your fork: `git clone https://github.com/YOUR_USERNAME/thesupadevs.git`
+3. **Install** dependencies: `pnpm install`
+4. **Create** a feature branch: `git checkout -b feature/amazing-feature`
+5. **Make** your changes
+6. **Test** locally: `pnpm dev`
+7. **Commit** your changes: `git commit -m 'Add amazing feature'`
+8. **Push** to branch: `git push origin feature/amazing-feature`
+9. **Open** a Pull Request
+
+### Areas We Need Help With
+- 🚀 **Performance optimizations**
+- ♿ **Accessibility improvements**
+- 📱 **Mobile responsiveness**
+- 🧪 **Test coverage**
+- 📚 **Documentation**
+- 🎨 **UI/UX enhancements**
+- 🔍 **Advanced search features**
+
+**Read our [Contributing Guide](./CONTRIBUTING.md)** for detailed information.
+
+### Contributors
+
+Thanks to all our contributors! 🎉
+
+<a href="https://github.com/drealdumore/thesupadevs/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=drealdumore/thesupadevs" />
+</a>
 
 ## 📄 License
 
-MIT License - feel free to use this project for your own resource library!
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+**TL;DR**: You can use, modify, and distribute this project freely. Just include the original license!
 
 ## 👨‍💻 Author
 
 **Samuel Isah** ([@drealdumore](https://x.com/drealdumore))
 
+## 🌟 Show Your Support
+
+If this project helped you, please consider:
+
+- ⭐ **Starring the repository**
+- 🐛 **Reporting bugs** or suggesting features
+- 🤝 **Contributing** to the codebase
+- 📢 **Sharing** with other developers
+- 💬 **Joining our community** discussions
+
 ---
 
-⭐ **Star this repo** if you found it helpful!
+**Built with ❤️ by the open source community**
