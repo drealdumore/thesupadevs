@@ -80,6 +80,7 @@ export default function HomePageClient() {
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [subcategories, setSubcategories] = useState<SubcategoryData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -116,6 +117,8 @@ export default function HomePageClient() {
       setSubcategories(subcategoriesRes.data || []);
     } catch (error) {
       console.error("Error fetching categories:", error);
+    } finally {
+      setCategoriesLoading(false);
     }
   }
 
@@ -175,11 +178,16 @@ export default function HomePageClient() {
   const scrollToCategory = (categoryName: string) => {
     setActiveCategory(categoryName);
     setTimeout(() => {
-      categoryRefs.current[categoryName]?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 100);
+      const element = categoryRefs.current[categoryName];
+      if (element) {
+        const yOffset = -200; // Show category filters + some padding
+        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({ 
+          top: Math.max(0, y), 
+          behavior: 'smooth' 
+        });
+      }
+    }, 150);
   };
 
   return (
@@ -192,14 +200,23 @@ export default function HomePageClient() {
         searchInputRef={searchInputRef}
       />
 
-      <CategoryFilters
-        categories={categories}
-        activeCategory={activeCategory}
-        onCategoryChange={setActiveCategory}
-        onScrollToCategory={scrollToCategory}
-        resources={resources}
-        categoryIcons={categoryIcons}
-      />
+      {categoriesLoading ? (
+        <div className="flex flex-wrap gap-2 md:gap-3">
+          <div className="h-11 w-16 bg-muted/30 animate-pulse rounded-full" />
+          {[...Array(6)].map((_, i) => (
+            <div key={i} className="h-11 w-24 bg-muted/30 animate-pulse rounded-full" />
+          ))}
+        </div>
+      ) : (
+        <CategoryFilters
+          categories={categories}
+          activeCategory={activeCategory}
+          onCategoryChange={setActiveCategory}
+          onScrollToCategory={scrollToCategory}
+          resources={resources}
+          categoryIcons={categoryIcons}
+        />
+      )}
 
       {/* Subcategory Cards */}
       <div className="space-y-8">
