@@ -6,42 +6,81 @@ import { Header } from "@/components/header";
 import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
-  title: "TheSupaDevs - Stop searching everywhere. Start building.",
+  metadataBase: new URL("https://thesupadevs.vercel.app"),
+  title: {
+    default: "TheSupaDevs - Curated Developer Resources & Tools Library",
+    template: "%s | TheSupaDevs",
+  },
   description:
-    "A curated collection of tools, libraries, and resources for developers. Built by developers, for developers.",
+    "Discover 1000+ curated developer resources, tools, libraries, and guides. From React frameworks to DevOps tools - everything developers need to build better software faster.",
   keywords: [
     "developer resources",
-    "tools",
-    "libraries",
-    "programming",
-    "TheSupaDevs",
+    "programming tools",
+    "web development",
+    "react",
+    "nextjs",
+    "typescript",
+    "javascript",
+    "python",
+    "devops",
+    "frontend",
+    "backend",
+    "fullstack",
+    "design tools",
+    "ui libraries",
+    "developer productivity",
+    "coding resources",
+    "software development",
+    "thesupadevs",
+    "supabase",
   ],
-  authors: [{ name: "TheSupaDevs" }],
+  authors: [{ name: "Samuel Isah", url: "https://x.com/drealdumore" }],
+  creator: "Samuel Isah",
+  publisher: "Samuel Isah",
+  category: "Technology",
+  classification: "Developer Tools",
   openGraph: {
-    title: "TheSupaDevs - Developer Resource Library",
-    description:
-      "A curated collection of tools, libraries, and resources for developers. Built by developers, for developers.",
     type: "website",
+    locale: "en_US",
+    url: "https://thesupadevs.vercel.app",
     siteName: "TheSupaDevs",
-    images: [
-      {
-        url: "/og-image.png",
-        width: 1200,
-        height: 630,
-        alt: "TheSupaDevs - Developer Resources",
-      },
-    ],
+    title: "TheSupaDevs - Curated Developer Resources & Tools Library",
+    description:
+      "Discover 1000+ curated developer resources, tools, libraries, and guides. From React frameworks to DevOps tools - everything developers need.",
   },
   twitter: {
     card: "summary_large_image",
-    title: "TheSupaDevs - Developer Resource Library",
+    site: "@drealdumore",
+    creator: "@drealdumore",
+    title: "TheSupaDevs - Curated Developer Resources & Tools Library",
     description:
-      "A curated collection of tools, libraries, and resources for developers.",
-    images: ["/og-image.png"],
+      "Discover 1000+ curated developer resources, tools, libraries, and guides for modern web development.",
   },
   robots: {
     index: true,
     follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: "your-google-verification-code",
+    yandex: "your-yandex-verification-code",
+    yahoo: "your-yahoo-verification-code",
+  },
+  alternates: {
+    canonical: "https://thesupadevs.vercel.app",
+  },
+  other: {
+    "theme-color": "#000000",
+    "color-scheme": "dark",
+    "mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
   },
 };
 
@@ -52,6 +91,16 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
+      <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <meta name="theme-color" content="#000000" />
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, maximum-scale=5"
+        />
+      </head>
       <body className="antialiased font-sans">
         <ThemeProvider>
           <ClientBody>

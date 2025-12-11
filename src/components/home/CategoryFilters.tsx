@@ -34,10 +34,10 @@ export function CategoryFilters({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.4 }}
     >
-      <div className="flex flex-wrap justify-center gap-2 md:gap-3">
+      <div className="flex flex-wrap md:justify-center gap-2 md:gap-3">
         <motion.button
           onClick={() => onCategoryChange("All")}
-          className={`rounded-full border px-5 py-3 text-sm font-semibold tracking-wide transition-all duration-200 md:px-6 md:py-2 md:text-sm flex items-center gap-2 min-h-[44px] md:min-h-[36px] ${
+          className={`rounded-full border px-3 text-sm font-semibold tracking-wide transition-all duration-200 md:px-6 md:py-2 md:text-sm flex items-center gap-2 min-h-[44px] md:min-h-[36px] ${
             activeCategory === "All"
               ? "border-foreground bg-foreground text-background shadow-lg"
               : "border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted/50 hover:shadow-md"
