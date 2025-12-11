@@ -11,40 +11,17 @@ const supabase = createClient(
 
 async function scrapeMetadata(url) {
   try {
-    // Try Microlink API first
-    const microlinkResponse = await axios.get(
-      `https://api.microlink.io?url=${encodeURIComponent(url)}`,
-      { timeout: 5000 }
+    // Use your local scrape-metadata API
+    const response = await axios.get(
+      `http://localhost:3000/api/scrape-metadata?url=${encodeURIComponent(url)}`,
+      { timeout: 10000 }
     );
 
-    if (microlinkResponse.data.status === 'success') {
-      const data = microlinkResponse.data.data;
-      return data.image?.url || data.logo?.url || null;
+    if (response.data.success && response.data.metadata.image) {
+      return response.data.metadata.image;
     }
-  } catch (error) {
-    console.log(`Microlink failed for ${url}, trying fallback...`);
-  }
-
-  // Fallback scraper
-  try {
-    const { data } = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; DevLibrary/1.0; +https://devlibrary.com)',
-      },
-      timeout: 8000,
-    });
-
-    const $ = cheerio.load(data);
-    const ogImage = $('meta[property="og:image"]').attr('content');
-    const twitterImage = $('meta[name="twitter:image"]').attr('content');
-    const favicon = $('link[rel="icon"]').attr('href') || $('link[rel="shortcut icon"]').attr('href');
-
-    let imageUrl = ogImage || twitterImage;
-    if (!imageUrl && favicon) {
-      imageUrl = favicon.startsWith('http') ? favicon : new URL(favicon, url).href;
-    }
-
-    return imageUrl || null;
+    
+    return null;
   } catch (error) {
     console.log(`Failed to scrape ${url}:`, error.message);
     return null;
@@ -54,11 +31,11 @@ async function scrapeMetadata(url) {
 async function backfillImages() {
   console.log('🚀 Starting image backfill process...\n');
 
-  // Fetch all resources without images
+  // Fetch all resources without images (null, empty string, or missing)
   const { data: resources, error } = await supabase
     .from('resources')
     .select('id, name, url, image_url')
-    .is('image_url', null);
+    .or('image_url.is.null,image_url.eq.');
 
   if (error) {
     console.error('Error fetching resources:', error);
@@ -79,6 +56,7 @@ async function backfillImages() {
     const imageUrl = await scrapeMetadata(resource.url);
 
     if (imageUrl) {
+      console.log(`🖼️  Found image: ${imageUrl.substring(0, 60)}...`);
       // Update the resource with the scraped image
       const { error: updateError } = await supabase
         .from('resources')

@@ -159,7 +159,7 @@ export default function AdminPage() {
   const [resourcesLoading, setResourcesLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loadingStage, setLoadingStage] = useState('Authenticating');
+  const [loadingStage, setLoadingStage] = useState("Authenticating");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -169,13 +169,17 @@ export default function AdminPage() {
   const [subcategories, setSubcategories] = useState<SubcategoryData[]>([]);
 
   // Filtering & Search
-  const [filter, setFilter] = useState<"all" | "pending" | "approved">("all");
+  const [filter, setFilter] = useState<
+    "all" | "pending" | "approved" | "broken"
+  >("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<Category | "all">(
     "all"
   );
   const [sortField, setSortField] = useState<SortField>("created_at");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
+  const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
+  const [checkingUrls, setCheckingUrls] = useState(false);
 
   // Selection & Bulk Operations
   const [selectedResources, setSelectedResources] = useState<Set<string>>(
@@ -229,16 +233,18 @@ export default function AdminPage() {
       confidence: string;
     }>
   >([]);
-  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
+  const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(
+    new Set()
+  );
   const [currentBatch, setCurrentBatch] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('ai-batch-current') || '0');
+    if (typeof window !== "undefined") {
+      return parseInt(localStorage.getItem("ai-batch-current") || "0");
     }
     return 0;
   });
   const [totalBatches, setTotalBatches] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return parseInt(localStorage.getItem('ai-batch-total') || '0');
+    if (typeof window !== "undefined") {
+      return parseInt(localStorage.getItem("ai-batch-total") || "0");
     }
     return 0;
   });
@@ -251,7 +257,7 @@ export default function AdminPage() {
   const fetchResources = useCallback(async () => {
     try {
       setResourcesLoading(true);
-      setLoadingStage('Loading Resources');
+      setLoadingStage("Loading Resources");
       setLoadingProgress(40);
       const supabase = createClient();
       const { data, error } = await supabase
@@ -272,7 +278,7 @@ export default function AdminPage() {
   const fetchCategories = useCallback(async () => {
     try {
       setCategoriesLoading(true);
-      setLoadingStage('Loading Categories');
+      setLoadingStage("Loading Categories");
       setLoadingProgress(85);
       const supabase = createClient();
       const [categoriesRes, subcategoriesRes] = await Promise.all([
@@ -299,7 +305,11 @@ export default function AdminPage() {
   // Enhanced filtering and sorting
   const filteredAndSortedResources = allResources
     .filter((resource) => {
-      const matchesStatus = filter === "all" || resource.status === filter;
+      const matchesStatus =
+        filter === "all" ||
+        (filter === "broken"
+          ? brokenUrls.has(resource.id)
+          : resource.status === filter);
       const matchesSearch =
         searchQuery === "" ||
         resource.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -340,7 +350,8 @@ export default function AdminPage() {
   const getCounts = () => {
     const pending = allResources.filter((r) => r.status === "pending").length;
     const approved = allResources.filter((r) => r.status === "approved").length;
-    return { all: allResources.length, pending, approved };
+    const broken = brokenUrls.size;
+    return { all: allResources.length, pending, approved, broken };
   };
 
   const counts = getCounts();
@@ -356,7 +367,7 @@ export default function AdminPage() {
     const isLoading = resourcesLoading || categoriesLoading;
     setLoading(isLoading);
     if (!isLoading && isAuthenticated) {
-      setLoadingStage('Ready');
+      setLoadingStage("Ready");
       setLoadingProgress(100);
     }
   }, [resourcesLoading, categoriesLoading, isAuthenticated]);
@@ -427,7 +438,7 @@ export default function AdminPage() {
   }
 
   async function checkAuth() {
-    setLoadingStage('Authenticating');
+    setLoadingStage("Authenticating");
     setLoadingProgress(10);
     const supabase = createClient();
     const { data } = await supabase.auth.getSession();
@@ -531,13 +542,21 @@ export default function AdminPage() {
           .from("resources")
           .delete()
           .in("id", resourceIds);
-        if (error) throw error;
+        if (error) {
+          console.error("Delete error:", error);
+          throw error;
+        }
       } else {
+        // Convert 'approve' to 'approved' for database
+        const status = operation === "approve" ? "approved" : operation;
         const { error } = await supabase
           .from("resources")
-          .update({ status: operation })
+          .update({ status })
           .in("id", resourceIds);
-        if (error) throw error;
+        if (error) {
+          console.error("Update error:", error);
+          throw error;
+        }
       }
 
       setSelectedResources(new Set());
@@ -545,6 +564,7 @@ export default function AdminPage() {
       setDeleteConfirm(null);
     } catch (error) {
       console.error("Bulk operation error:", error);
+      alert(`Failed to ${operation} resources. Please check your permissions.`);
     } finally {
       setBulkOperating(false);
     }
@@ -619,13 +639,40 @@ export default function AdminPage() {
     }
   }
 
+  // Check for broken URLs
+  async function checkBrokenUrls() {
+    setCheckingUrls(true);
+    const broken = new Set<string>();
+
+    for (const resource of allResources) {
+      try {
+        const response = await fetch(
+          `/api/scrape-metadata?url=${encodeURIComponent(resource.url)}`
+        );
+        const data = await response.json();
+
+        if (!data.success) {
+          broken.add(resource.id);
+        }
+      } catch (error) {
+        broken.add(resource.id);
+      }
+
+      // Small delay to avoid overwhelming the server
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+
+    setBrokenUrls(broken);
+    setCheckingUrls(false);
+  }
+
   // AI Categorization
   async function startBatchCategorization() {
     const total = Math.ceil(allResources.length / batchSize);
     setCurrentBatch(0);
     setTotalBatches(total);
-    localStorage.setItem('ai-batch-current', '0');
-    localStorage.setItem('ai-batch-total', total.toString());
+    localStorage.setItem("ai-batch-current", "0");
+    localStorage.setItem("ai-batch-total", total.toString());
     setCategorySuggestions([]);
     setSelectedSuggestions(new Set());
     processNextBatch();
@@ -636,14 +683,13 @@ export default function AdminPage() {
     const batchNum = currentBatch + 1;
     const offset = currentBatch * batchSize;
     const batch = allResources.slice(offset, offset + batchSize);
-    
+
     if (batch.length === 0) {
       setCategorizing(false);
       return;
     }
 
     try {
-      console.log(`🚀 Starting batch ${batchNum}/${totalBatches} (${batch.length} resources)`);
       const startTime = Date.now();
 
       const response = await fetch("/api/categorize", {
@@ -661,11 +707,25 @@ export default function AdminPage() {
       const data = await response.json();
       if (data.suggestions) {
         const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        const changes = data.suggestions.filter((s: { suggestedCategory: string; currentCategory: string }) => s.suggestedCategory !== s.currentCategory).length;
-        console.log(`✅ Batch ${batchNum} completed in ${duration}s - ${changes} changes found`);
-        
+        const changes = data.suggestions.filter(
+          (s: { suggestedCategory: string; currentCategory: string }) =>
+            s.suggestedCategory !== s.currentCategory
+        ).length;
+
         setCategorySuggestions(data.suggestions);
-        setSelectedSuggestions(new Set(data.suggestions.filter((s: { suggestedCategory: string; currentCategory: string; id: string }) => s.suggestedCategory !== s.currentCategory).map((s: { id: string }) => s.id)));
+        setSelectedSuggestions(
+          new Set(
+            data.suggestions
+              .filter(
+                (s: {
+                  suggestedCategory: string;
+                  currentCategory: string;
+                  id: string;
+                }) => s.suggestedCategory !== s.currentCategory
+              )
+              .map((s: { id: string }) => s.id)
+          )
+        );
       }
     } catch (error) {
       console.error("❌ Error categorizing batch:", error);
@@ -677,7 +737,7 @@ export default function AdminPage() {
   function proceedToNextBatch() {
     const nextBatch = currentBatch + 1;
     setCurrentBatch(nextBatch);
-    localStorage.setItem('ai-batch-current', nextBatch.toString());
+    localStorage.setItem("ai-batch-current", nextBatch.toString());
     setCategorySuggestions([]);
     setSelectedSuggestions(new Set());
     setTimeout(processNextBatch, 100);
@@ -699,7 +759,7 @@ export default function AdminPage() {
       }
 
       fetchResources();
-      
+
       // Check if there are more batches
       if (currentBatch + 1 < totalBatches) {
         proceedToNextBatch();
@@ -727,8 +787,10 @@ export default function AdminPage() {
   }
 
   function applySelectedSuggestions() {
-    const selectedSuggestionsList = categorySuggestions.filter((s) => 
-      selectedSuggestions.has(s.id) && s.suggestedCategory !== s.currentCategory
+    const selectedSuggestionsList = categorySuggestions.filter(
+      (s) =>
+        selectedSuggestions.has(s.id) &&
+        s.suggestedCategory !== s.currentCategory
     );
     applyCategorySuggestions(selectedSuggestionsList);
   }
@@ -739,12 +801,17 @@ export default function AdminPage() {
     setCurrentBatch(0);
     setTotalBatches(0);
     setCategorizing(false);
-    localStorage.removeItem('ai-batch-current');
-    localStorage.removeItem('ai-batch-total');
+    localStorage.removeItem("ai-batch-current");
+    localStorage.removeItem("ai-batch-total");
   }
 
   if (loading) {
-    return <LoadingScreen loadingStage={loadingStage} loadingProgress={loadingProgress} />;
+    return (
+      <LoadingScreen
+        loadingStage={loadingStage}
+        loadingProgress={loadingProgress}
+      />
+    );
   }
 
   if (!isAuthenticated) {
@@ -803,11 +870,13 @@ export default function AdminPage() {
             setSortField(field);
             setSortOrder(order);
           }}
+          onCheckBrokenUrls={checkBrokenUrls}
+          checkingUrls={checkingUrls}
         />
       </motion.div>
 
       {/* Resources List */}
-      <motion.div 
+      <motion.div
         className="space-y-4"
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -823,33 +892,41 @@ export default function AdminPage() {
               transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             >
               <Card className="border-2 p-12 text-center">
-                <motion.div 
+                <motion.div
                   className="mx-auto w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mb-4"
                   initial={{ scale: 0, rotate: -180 }}
                   animate={{ scale: 1, rotate: 0 }}
-                  transition={{ 
-                    duration: 0.8, 
-                    delay: 0.3, 
-                    type: "spring", 
-                    stiffness: 200, 
-                    damping: 15 
+                  transition={{
+                    duration: 0.8,
+                    delay: 0.3,
+                    type: "spring",
+                    stiffness: 200,
+                    damping: 15,
                   }}
                 >
                   <Search className="h-6 w-6 text-muted-foreground" />
                 </motion.div>
-                <motion.p 
+                <motion.p
                   className="text-muted-foreground mb-2"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{
+                    duration: 0.6,
+                    delay: 0.5,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
                 >
                   No resources found
                 </motion.p>
-                <motion.p 
+                <motion.p
                   className="text-sm text-muted-foreground"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6, delay: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                  transition={{
+                    duration: 0.6,
+                    delay: 0.6,
+                    ease: [0.16, 1, 0.3, 1],
+                  }}
                 >
                   Try adjusting your search or filters
                 </motion.p>
@@ -872,12 +949,12 @@ export default function AdminPage() {
                   transition={{
                     duration: 0.6,
                     delay: index * 0.05,
-                    ease: [0.16, 1, 0.3, 1]
+                    ease: [0.16, 1, 0.3, 1],
                   }}
-                  whileHover={{ 
-                    scale: 1.02, 
+                  whileHover={{
+                    scale: 1.02,
                     y: -4,
-                    transition: { duration: 0.2, ease: "easeOut" }
+                    transition: { duration: 0.2, ease: "easeOut" },
                   }}
                 >
                   <ResourceCard

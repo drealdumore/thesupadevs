@@ -17,7 +17,14 @@ import {
 } from "@/components/ui/select";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
-import { X, Loader2, Image as ImageIcon, CheckCircle2, XCircle, Sparkles } from "lucide-react";
+import {
+  X,
+  Loader2,
+  Image as ImageIcon,
+  CheckCircle2,
+  XCircle,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import type { Category } from "@/lib/types/database";
@@ -31,9 +38,6 @@ import {
   SimpleKitModalFooter,
   SimpleKitModalClose,
 } from "@/components/ui/simple-kit-modal";
-
-
-
 
 const resourceSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -58,15 +62,21 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   const [scrapedImage, setScrapedImage] = useState<string | null>(null);
   const [scraping, setScraping] = useState(false);
   const [urlValue, setUrlValue] = useState("");
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(
+    null
+  );
   const [urlValid, setUrlValid] = useState<boolean | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [autoFilled, setAutoFilled] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
   const [skipTimer, setSkipTimer] = useState<NodeJS.Timeout | null>(null);
   const [lastScrapedUrl, setLastScrapedUrl] = useState<string>("");
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
-  const [subcategories, setSubcategories] = useState<{ id: string; name: string; category_id: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>(
+    []
+  );
+  const [subcategories, setSubcategories] = useState<
+    { id: string; name: string; category_id: string }[]
+  >([]);
 
   const {
     register,
@@ -81,17 +91,20 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
 
   const normalizeUrl = (url: string): string => {
     let normalized = url.trim();
-    
+
     // Add https:// if no protocol
-    if (!normalized.startsWith("http://") && !normalized.startsWith("https://")) {
+    if (
+      !normalized.startsWith("http://") &&
+      !normalized.startsWith("https://")
+    ) {
       normalized = "https://" + normalized;
     }
-    
+
     // Remove trailing slash
     if (normalized.endsWith("/")) {
       normalized = normalized.slice(0, -1);
     }
-    
+
     return normalized;
   };
 
@@ -108,7 +121,7 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   useEffect(() => {
     if (open) {
       fetchCategoriesAndSubcategories();
-      
+
       const draft = localStorage.getItem("resource-draft");
       if (draft) {
         try {
@@ -120,7 +133,9 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
             setValue("url", parsed.url);
           }
           if (parsed.tags) setTags(parsed.tags);
-          toast.info("Draft restored", { description: "Your previous work was saved" });
+          toast.info("Draft restored", {
+            description: "Your previous work was saved",
+          });
         } catch (e) {
           console.error("Failed to parse draft", e);
         }
@@ -133,7 +148,7 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       const supabase = createClient();
       const [categoriesRes, subcategoriesRes] = await Promise.all([
         supabase.from("categories").select("*").order("name"),
-        supabase.from("subcategories").select("*").order("name")
+        supabase.from("subcategories").select("*").order("name"),
       ]);
 
       if (categoriesRes.error) throw categoriesRes.error;
@@ -164,9 +179,11 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   }, [watch, urlValue, tags, open]);
 
   const selectedCategory = watch("category");
-  const selectedCategoryData = categories.find(c => c.name === selectedCategory);
-  const availableSubcategories = selectedCategoryData 
-    ? subcategories.filter(s => s.category_id === selectedCategoryData.id)
+  const selectedCategoryData = categories.find(
+    (c) => c.name === selectedCategory
+  );
+  const availableSubcategories = selectedCategoryData
+    ? subcategories.filter((s) => s.category_id === selectedCategoryData.id)
     : [];
 
   const checkDuplicateUrl = async (url: string): Promise<boolean> => {
@@ -186,26 +203,26 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   const scrapeMetadata = async (url: string) => {
     // Normalize URL
     const normalized = normalizeUrl(url);
-    
+
     // Validate domain
     if (!isValidDomain(normalized)) {
       setUrlError("Please enter a valid domain (e.g., example.com)");
       return;
     }
-    
+
     // Update URL field with normalized version
     if (normalized !== url) {
       setUrlValue(normalized);
       setValue("url", normalized);
     }
-    
+
     // Check if URL changed - clear previous data
     if (lastScrapedUrl && lastScrapedUrl !== normalized) {
       setScrapedImage(null);
       setUrlValid(null);
       setAutoFilled(false);
     }
-    
+
     // Check for duplicate
     const isDuplicate = await checkDuplicateUrl(normalized);
     if (isDuplicate) {
@@ -213,49 +230,48 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       setUrlError("This resource already exists in our library!");
       return;
     }
-    
-    console.log("Starting scrape for:", normalized);
+
     setScraping(true);
     setUrlValid(null);
     setUrlError(null);
     setAutoFilled(false);
     setShowSkip(false);
-    
+
     // Show skip button after 3 seconds
     const timer = setTimeout(() => {
       setShowSkip(true);
     }, 3000);
     setSkipTimer(timer);
-    
+
     try {
-      const response = await fetch(`/api/scrape-metadata?url=${encodeURIComponent(normalized)}`);
+      const response = await fetch(
+        `/api/scrape-metadata?url=${encodeURIComponent(normalized)}`
+      );
       const data = await response.json();
-      
-      console.log("Scrape response:", data);
-      
+
       if (skipTimer) clearTimeout(skipTimer);
       setShowSkip(false);
-      
+
       if (data.error) {
         setUrlValid(false);
         setUrlError(data.error);
         return;
       }
-      
+
       if (data.success && data.metadata) {
         setUrlValid(true);
         setScrapedImage(data.metadata.image);
         setLastScrapedUrl(normalized);
-        
+
         // Auto-fill fields
         if (data.metadata.title) {
-          console.log("Setting name to:", data.metadata.title);
           setValue("name", data.metadata.title, { shouldValidate: true });
           setAutoFilled(true);
         }
         if (data.metadata.description) {
-          console.log("Setting description to:", data.metadata.description);
-          setValue("description", data.metadata.description, { shouldValidate: true });
+          setValue("description", data.metadata.description, {
+            shouldValidate: true,
+          });
           setAutoFilled(true);
         }
       }
@@ -264,7 +280,9 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       if (skipTimer) clearTimeout(skipTimer);
       setShowSkip(false);
       setUrlValid(false);
-      setUrlError("Can't connect to this URL. Please check if it's correct and accessible.");
+      setUrlError(
+        "Can't connect to this URL. Please check if it's correct and accessible."
+      );
     } finally {
       setScraping(false);
     }
@@ -312,7 +330,7 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       setScrapedImage(null);
       setUrlValue("");
       localStorage.removeItem("resource-draft");
-      
+
       toast.success("Resource submitted!", {
         description: "Your resource has been submitted for review.",
       });
@@ -343,22 +361,27 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   };
 
   return (
-    <SimpleKitModal open={open} onOpenChange={(isOpen) => {
-      setOpen(isOpen);
-      if (!isOpen) {
-        // Cleanup on close
-        if (debounceTimer) clearTimeout(debounceTimer);
-        if (skipTimer) clearTimeout(skipTimer);
-        setScraping(false);
-        setShowSkip(false);
-      }
-    }}>
+    <SimpleKitModal
+      open={open}
+      onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) {
+          // Cleanup on close
+          if (debounceTimer) clearTimeout(debounceTimer);
+          if (skipTimer) clearTimeout(skipTimer);
+          setScraping(false);
+          setShowSkip(false);
+        }
+      }}
+    >
       <SimpleKitModalTrigger asChild>{children}</SimpleKitModalTrigger>
       <SimpleKitModalContent>
         <SimpleKitModalHeader>
           <SimpleKitModalTitle>Submit a Developer Resource</SimpleKitModalTitle>
           <p className="text-sm text-muted-foreground text-center mt-2">
-            Share a developer tool or resource you find useful. If approved, it will appear in the main collection. Please limit submissions to 5 per day.
+            Share a developer tool or resource you find useful. If approved, it
+            will appear in the main collection. Please limit submissions to 5
+            per day.
           </p>
         </SimpleKitModalHeader>
         <SimpleKitModalBody>
@@ -481,16 +504,33 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                           debouncedScrape(value);
                         }
                       }}
-                      className={urlValid === true ? "border-green-500" : urlValid === false ? "border-red-500" : ""}
+                      className={
+                        urlValid === true
+                          ? "border-green-500"
+                          : urlValid === false
+                          ? "border-red-500"
+                          : ""
+                      }
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                      {scraping && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-                      {!scraping && urlValid === true && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                      {!scraping && urlValid === false && <XCircle className="h-4 w-4 text-red-500" />}
+                      {scraping && (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      )}
+                      {!scraping && urlValid === true && (
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                      )}
+                      {!scraping && urlValid === false && (
+                        <XCircle className="h-4 w-4 text-red-500" />
+                      )}
                     </div>
                   </div>
                   {showSkip && scraping && (
-                    <Button type="button" variant="outline" size="sm" onClick={skipScraping}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={skipScraping}
+                    >
                       Skip
                     </Button>
                   )}
@@ -514,7 +554,9 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                 )}
                 {scrapedImage && (
                   <div className="mt-2 p-2 border rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-2">Preview Image:</p>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Preview Image:
+                    </p>
                     <img
                       src={scrapedImage}
                       alt="Resource preview"

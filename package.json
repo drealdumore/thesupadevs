@@ -9,7 +9,12 @@
     "lint": "next lint",
     "backfill-images": "node scripts/backfill-images.js",
     "clean-urls": "node scripts/clean-urls.js",
-    "import-extensions": "node scripts/import-extensions.js"
+    "import-extensions": "node scripts/import-extensions.js",
+    "cleanup-broken-urls": "node scripts/cleanup-broken-urls.js",
+    "delete-ref-urls": "node scripts/delete-ref-urls.js",
+    "add-programming-resources": "node scripts/add-programming-resources.js",
+    "add-database-cloud-resources": "node scripts/add-database-cloud-resources.js",
+    "force-rescrape-images": "node scripts/force-rescrape-images.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

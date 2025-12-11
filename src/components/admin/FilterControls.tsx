@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Search, ArrowUpDown, Check, Clock, Trash2, RefreshCw } from "lucide-react";
+import { Search, ArrowUpDown, Check, Clock, Trash2, RefreshCw, AlertTriangle } from "lucide-react";
 import type { Category } from "@/lib/types/database";
 
 type SortField = "name" | "created_at" | "category" | "status";
@@ -29,9 +29,9 @@ interface FilterControlsProps {
   selectedCategory: Category | "all";
   onCategoryChange: (category: Category | "all") => void;
   categories: Array<{ id: string; name: string }>;
-  filter: "all" | "pending" | "approved";
-  onFilterChange: (filter: "all" | "pending" | "approved") => void;
-  counts: { all: number; pending: number; approved: number };
+  filter: "all" | "pending" | "approved" | "broken";
+  onFilterChange: (filter: "all" | "pending" | "approved" | "broken") => void;
+  counts: { all: number; pending: number; approved: number; broken: number };
   selectedResources: Set<string>;
   bulkOperating: boolean;
   onBulkOperation: (operation: "approve" | "pending" | "delete") => void;
@@ -42,6 +42,8 @@ interface FilterControlsProps {
   filteredCount: number;
   totalCount: number;
   onSortChange: (field: SortField, order: SortOrder) => void;
+  onCheckBrokenUrls: () => void;
+  checkingUrls: boolean;
 }
 
 export function FilterControls({
@@ -63,6 +65,8 @@ export function FilterControls({
   filteredCount,
   totalCount,
   onSortChange,
+  onCheckBrokenUrls,
+  checkingUrls,
 }: FilterControlsProps) {
   return (
     <Card className="p-6 mb-6">
@@ -146,6 +150,25 @@ export function FilterControls({
               className="text-xs sm:text-sm"
             >
               Approved ({counts.approved})
+            </Button>
+            <Button
+              variant={filter === "broken" ? "destructive" : "outline"}
+              onClick={() => onFilterChange("broken")}
+              className="text-xs sm:text-sm"
+            >
+              Broken URLs ({counts.broken})
+            </Button>
+            <Button
+              variant="outline"
+              onClick={onCheckBrokenUrls}
+              disabled={checkingUrls}
+              className="text-xs sm:text-sm gap-1"
+            >
+              {checkingUrls ? (
+                <RefreshCw className="h-3 w-3 animate-spin" />
+              ) : (
+                "Check URLs"
+              )}
             </Button>
           </div>
 

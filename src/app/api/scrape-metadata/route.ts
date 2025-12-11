@@ -24,7 +24,8 @@ async function scrapeMetadata(url: string) {
       "Accept-Encoding": "gzip, deflate",
       "Connection": "keep-alive",
     },
-    timeout: 8000,
+    timeout: 10000,
+    maxRedirects: 5,
   });
 
   const $ = cheerio.load(data);
@@ -35,12 +36,27 @@ async function scrapeMetadata(url: string) {
     $('meta[name="description"]').attr("content") ||
     $('meta[property="og:description"]').attr("content");
 
+  // Try multiple image sources like your deployed app
   const ogImage = $('meta[property="og:image"]').attr("content");
   const twitterImage = $('meta[name="twitter:image"]').attr("content");
+  const twitterImageSrc = $('meta[name="twitter:image:src"]').attr("content");
   const favicon = $('link[rel="icon"]').attr("href") || $('link[rel="shortcut icon"]').attr("href");
+  
+  // Try to find any img tag as fallback
+  const firstImg = $('img').first().attr('src');
+  
+  let imageUrl: string | null = ogImage || twitterImage || twitterImageSrc || firstImg || null;
 
-  let imageUrl = ogImage || twitterImage;
-
+  // Convert relative URLs to absolute
+  if (imageUrl && !imageUrl.startsWith('http')) {
+    try {
+      imageUrl = new URL(imageUrl, url).href;
+    } catch (e) {
+      imageUrl = null;
+    }
+  }
+  
+  // Fallback to favicon if no other image found
   if (!imageUrl && favicon) {
     imageUrl = favicon.startsWith("http") ? favicon : new URL(favicon, url).href;
   }

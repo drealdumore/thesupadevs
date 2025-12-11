@@ -5,7 +5,7 @@ import { Zap } from "lucide-react";
 
 export function HeroSection() {
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
@@ -20,9 +20,11 @@ export function HeroSection() {
           shelf <br className="hidden lg:block" />
           for developers
         </h1>
-        <p className="mx-auto mb-8 max-w-2xl text-lg text-muted-foreground lg:mx-0">
-          A comprehensive collection of buttons, cards, tools, and resources
-          for frontend and backend.
+        <h3 className="mb-6 font-heading text-2xl font-semibold text-foreground md:text-3xl">
+          Stop searching everywhere. Start building.
+        </h3>
+        <p className="mb-8 max-w-2xl text-lg text-muted-foreground">
+          UI, APIs, tools, and more. Curated for developers.
         </p>
       </div>
     </motion.div>
