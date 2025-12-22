@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: "Work Sans";
+  src: url("/fonts/Work%20Sans.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
     --background: 40 20% 97%;
@@ -55,9 +63,10 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Work Sans", system-ui, sans-serif;
   }
   .font-heading {
-    font-family: 'Sora', 'Inter', system-ui, sans-serif;
+    font-family: "Sora", system-ui, sans-serif;
   }
   ::selection {
     @apply bg-primary text-primary-foreground;
@@ -67,7 +76,6 @@
   }
 }
 
-/* Global scrollbar styles */
 * {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--muted-foreground) / 0.2) hsl(var(--muted));
@@ -79,19 +87,30 @@
 }
 
 *::-webkit-scrollbar-track {
-  /* background: hsl(var(--muted)); */
   border-radius: 3px;
 }
 
 *::-webkit-scrollbar-thumb {
-  /* background: hsl(var(--muted-foreground) / 0.2); */
   border-radius: 3px;
 }
 
-*::-webkit-scrollbar-thumb:hover {
-  /* background: hsl(var(--muted-foreground) / 0.4); */
+@keyframes imgLoading {
+  0% {
+    clip-path: inset(100% 0 0 0);
+    opacity: 1;
+  }
+  90% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 0;
+  }
 }
 
-*::-webkit-scrollbar-corner {
-  /* background: hsl(var(--muted)); */
+.imgloading-container {
+  animation: imgLoading 2.5s linear infinite;
+  will-change: clip-path, opacity;
+  transform-origin: 0 100%;
 }

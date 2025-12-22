@@ -1,28 +1,36 @@
 import { Metadata } from "next";
-import { createClient } from "@/lib/supabase/client";
 import HomePageClient from "./HomePageClient";
+import { getCachedHomePageData } from "@/lib/cache";
+
+// Enable ISR - revalidate every 5 minutes
+export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
-  const supabase = createClient();
-  
-  // Get dynamic counts for SEO
-  const [resourcesRes, categoriesRes] = await Promise.all([
-    supabase.from("resources").select("id", { count: "exact" }).eq("status", "approved"),
-    supabase.from("categories").select("id", { count: "exact" })
-  ]);
-
-  const resourceCount = resourcesRes.count || 1000;
-  const categoryCount = categoriesRes.count || 8;
+  const { resourceCount, categoryCount } = await getCachedHomePageData();
 
   return {
     title: "TheSupaDevs - Curated Developer Resources & Tools Library",
     description: `Discover ${resourceCount}+ curated developer resources across ${categoryCount} categories. Frontend frameworks, backend tools, DevOps solutions, design resources, and more. Everything developers need to build better software faster.`,
     keywords: [
-      "developer resources", "programming tools", "web development resources", 
-      "react resources", "nextjs tools", "typescript libraries", "javascript frameworks",
-      "python tools", "devops resources", "frontend development", "backend development",
-      "fullstack resources", "design tools", "ui component libraries", "developer productivity",
-      "coding resources", "software development tools", "thesupadevs", "curated resources"
+      "developer resources",
+      "programming tools",
+      "web development resources",
+      "react resources",
+      "nextjs tools",
+      "typescript libraries",
+      "javascript frameworks",
+      "python tools",
+      "devops resources",
+      "frontend development",
+      "backend development",
+      "fullstack resources",
+      "design tools",
+      "ui component libraries",
+      "developer productivity",
+      "coding resources",
+      "software development tools",
+      "thesupadevs",
+      "curated resources",
     ],
     openGraph: {
       title: `TheSupaDevs - ${resourceCount}+ Curated Developer Resources`,
@@ -30,7 +38,6 @@ export async function generateMetadata(): Promise<Metadata> {
       type: "website",
       url: "https://thesupadevs.vercel.app",
       siteName: "TheSupaDevs",
-      
     },
     twitter: {
       card: "summary_large_image",
@@ -38,15 +45,24 @@ export async function generateMetadata(): Promise<Metadata> {
       description: `Discover ${resourceCount}+ curated developer resources across ${categoryCount} categories for modern web development.`,
     },
     alternates: {
-      canonical: "https://thesupadevs.vercel.app"
+      canonical: "https://thesupadevs.vercel.app",
     },
     other: {
       "application-name": "TheSupaDevs",
-      "apple-mobile-web-app-title": "TheSupaDevs"
-    }
+      "apple-mobile-web-app-title": "TheSupaDevs",
+    },
   };
 }
 
-export default function Home() {
-  return <HomePageClient />;
+export default async function Home() {
+  const { resources, categories, subcategories } =
+    await getCachedHomePageData();
+
+  return (
+    <HomePageClient
+      initialResources={resources}
+      initialCategories={categories}
+      initialSubcategories={subcategories}
+    />
+  );
 }

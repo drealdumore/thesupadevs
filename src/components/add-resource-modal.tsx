@@ -24,6 +24,7 @@ import {
   CheckCircle2,
   XCircle,
   Sparkles,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useEffect } from "react";
@@ -300,6 +301,20 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
     }
   };
 
+  const manualRescrape = () => {
+    if (!urlValue.trim()) return;
+
+    // Clear all previous state
+    setScrapedImage(null);
+    setUrlValid(null);
+    setUrlError(null);
+    setAutoFilled(false);
+    setLastScrapedUrl("");
+
+    // Trigger fresh scrape
+    scrapeMetadata(urlValue);
+  };
+
   const skipScraping = () => {
     if (skipTimer) clearTimeout(skipTimer);
     if (debounceTimer) clearTimeout(debounceTimer);
@@ -392,8 +407,7 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
           <SimpleKitModalTitle>Submit a Developer Resource</SimpleKitModalTitle>
           <p className="text-sm text-muted-foreground text-center mt-2">
             Share a developer tool or resource you find useful. If approved, it
-            will appear in the main collection. Please limit submissions to 5
-            per day.
+            will appear in the main collection.
           </p>
         </SimpleKitModalHeader>
         <SimpleKitModalBody>
@@ -536,6 +550,18 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                       )}
                     </div>
                   </div>
+                  {urlValue.trim() && !scraping && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={manualRescrape}
+                      className="px-3"
+                      title="Rescrape URL"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  )}
                   {showSkip && scraping && (
                     <Button
                       type="button"

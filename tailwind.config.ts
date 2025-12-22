@@ -10,9 +10,10 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        display: ["Sora", "Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-work-sans)", "Inter", "system-ui", "sans-serif"],
+        heading: ["var(--font-work-sans)", "Inter", "system-ui", "sans-serif"],
       },
+
       colors: {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
