@@ -1,6 +1,7 @@
 {
   "name": "thesupadevs",
   "version": "1.0.0",
+  "type": "module",
   "description": "A sleek, modern open-source web application where developers can discover and share 1000+ curated resources",
   "author": "Samuel Isah (https://x.com/drealdumore)",
   "license": "MIT",
@@ -23,9 +24,13 @@
   "private": false,
   "scripts": {
     "dev": "next dev -H 0.0.0.0 --turbopack",
+    "dev:no-turbo": "next dev -H 0.0.0.0",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "analyze": "ANALYZE=true next build",
+    "lighthouse": "lighthouse http://localhost:3000 --output=html --output-path=./lighthouse-report.html",
+    "perf": "npm run build && npm run start"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -57,10 +62,12 @@
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
+    "web-vitals": "^5.1.0",
     "zod": "^4.1.12"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.1",
+    "@next/bundle-analyzer": "^16.1.0",
     "@types/node": "^20.17.50",
     "@types/react": "^18.3.22",
     "@types/react-dom": "^18.3.7",

@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import { createClient } from "@/lib/supabase/client";
 import type { Resource, Category } from "@/lib/types/database";
 import { motion } from "framer-motion";
 import {
@@ -44,6 +43,12 @@ type SubcategoryData = {
   created_at: string;
 };
 
+interface HomePageClientProps {
+  initialResources: Resource[];
+  initialCategories: CategoryData[];
+  initialSubcategories: SubcategoryData[];
+}
+
 const categoryIcons: Record<
   string,
   React.ComponentType<{ className?: string }>
@@ -75,21 +80,20 @@ const categoryColors: Record<string, string> = {
     "bg-teal-500/10 text-teal-600 border-teal-200 dark:border-teal-800",
 };
 
-export default function HomePageClient() {
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [categories, setCategories] = useState<CategoryData[]>([]);
-  const [subcategories, setSubcategories] = useState<SubcategoryData[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [categoriesLoading, setCategoriesLoading] = useState(true);
+export default function HomePageClient({
+  initialResources,
+  initialCategories,
+  initialSubcategories,
+}: HomePageClientProps) {
+  const [resources] = useState<Resource[]>(initialResources);
+  const [categories] = useState<CategoryData[]>(initialCategories);
+  const [subcategories] = useState<SubcategoryData[]>(initialSubcategories);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
-    fetchResources();
-    fetchCategories();
-
     // Keyboard navigation
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
@@ -102,49 +106,11 @@ export default function HomePageClient() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  async function fetchCategories() {
-    try {
-      const supabase = createClient();
-      const [categoriesRes, subcategoriesRes] = await Promise.all([
-        supabase.from("categories").select("*").order("name"),
-        supabase.from("subcategories").select("*").order("name"),
-      ]);
-
-      if (categoriesRes.error) throw categoriesRes.error;
-      if (subcategoriesRes.error) throw subcategoriesRes.error;
-
-      setCategories(categoriesRes.data || []);
-      setSubcategories(subcategoriesRes.data || []);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    } finally {
-      setCategoriesLoading(false);
-    }
-  }
-
   const getSubcategoriesForCategory = (categoryName: string) => {
     const category = categories.find((c) => c.name === categoryName);
     if (!category) return [];
     return subcategories.filter((sub) => sub.category_id === category.id);
   };
-
-  async function fetchResources() {
-    try {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("resources")
-        .select("*")
-        .eq("status", "approved")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setResources(data || []);
-    } catch (error) {
-      console.error("Error fetching resources:", error);
-    } finally {
-      setLoading(false);
-    }
-  }
 
   const filteredResources = resources.filter(
     (r) =>
@@ -181,10 +147,11 @@ export default function HomePageClient() {
       const element = categoryRefs.current[categoryName];
       if (element) {
         const yOffset = -200; // Show category filters + some padding
-        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-        window.scrollTo({ 
-          top: Math.max(0, y), 
-          behavior: 'smooth' 
+        const y =
+          element.getBoundingClientRect().top + window.pageYOffset + yOffset;
+        window.scrollTo({
+          top: Math.max(0, y),
+          behavior: "smooth",
         });
       }
     }, 150);
@@ -200,36 +167,18 @@ export default function HomePageClient() {
         searchInputRef={searchInputRef}
       />
 
-      {categoriesLoading ? (
-        <div className="flex flex-wrap gap-2 md:gap-3">
-          <div className="h-11 w-16 bg-muted/30 animate-pulse rounded-full" />
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-11 w-24 bg-muted/30 animate-pulse rounded-full" />
-          ))}
-        </div>
-      ) : (
-        <CategoryFilters
-          categories={categories}
-          activeCategory={activeCategory}
-          onCategoryChange={setActiveCategory}
-          onScrollToCategory={scrollToCategory}
-          resources={resources}
-          categoryIcons={categoryIcons}
-        />
-      )}
+      <CategoryFilters
+        categories={categories}
+        activeCategory={activeCategory}
+        onCategoryChange={setActiveCategory}
+        onScrollToCategory={scrollToCategory}
+        resources={resources}
+        categoryIcons={categoryIcons}
+      />
 
       {/* Subcategory Cards */}
       <div className="space-y-8">
-        {loading ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="h-20 bg-muted/30 animate-pulse rounded-lg"
-              />
-            ))}
-          </div>
-        ) : searchQuery ? (
+        {searchQuery ? (
           <div className="space-y-4">
             <h2 className="text-xl font-semibold font-heading">
               Search Results ({filteredResources.length})
@@ -481,7 +430,7 @@ export default function HomePageClient() {
         )}
       </div>
 
-      {!loading && !searchQuery && recentResources.length > 0 && (
+      {!searchQuery && recentResources.length > 0 && (
         <RecentlyAdded recentResources={recentResources} />
       )}
 
