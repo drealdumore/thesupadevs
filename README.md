@@ -3,12 +3,15 @@
 [![MIT License](https://img.shields.io/badge/License-MIT-green.svg)](https://choosealicense.com/licenses/mit/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](http://makeapullrequest.com)
 [![Open Source](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://opensource.org/)
-[![Made with Next.js](https://img.shields.io/badge/Made%20with-Next.js-000000?logo=next.js)](https://nextjs.org/)
+[![Made with Next.js](https://img.shields.io/badge/Made%20with-Next.js%2015-000000?logo=next.js)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?logo=supabase&logoColor=white)](https://supabase.com/)
 
-A sleek, modern **open-source** web application where developers can discover and share 1000+ curated resources. Built with enterprise-level SEO optimization, AI-powered categorization, and buttery smooth animations.
+A sleek, modern **open-source** web application where developers can discover and share 1000+ curated resources. Built with enterprise-level SEO optimization, AI-powered categorization, real-time performance monitoring, and buttery smooth animations.
 
 🌐 **Live Demo**: [thesupadevs.vercel.app](https://thesupadevs.vercel.app)  
-🤝 **Contributing**: [See CONTRIBUTING.md](./CONTRIBUTING.md)
+🤝 **Contributing**: [See CONTRIBUTING.md](./CONTRIBUTING.md)  
+📊 **Performance**: Core Web Vitals optimized with real-time monitoring
 
 ## ✨ Features
 
@@ -27,49 +30,52 @@ A sleek, modern **open-source** web application where developers can discover an
 - **1000+ Curated Resources**: Browse by Frontend, Backend, DevOps, Design, Tools, Learning, and more
 - **Smart Search**: Real-time search with keyboard shortcuts (Press `/` to focus)
 - **Dynamic Categories & Subcategories**: Database-driven organization with drill-down navigation
-- **Intelligent Image Scraping**:
-  - Hybrid approach: Microlink API (fast, ~500ms) + Cheerio fallback (reliable, ~2-5s)
+- **Intelligent Metadata Scraping**:
+  - Custom Cheerio + Axios scraper with comprehensive error handling
   - Multi-source fallback: OG image → Twitter image → First page image → Favicon → Placeholder
-  - Automatic retry and error handling
+  - Automatic retry logic and timeout handling (10s timeout)
   - In-memory caching to prevent duplicate requests
+  - User-friendly error messages for different failure scenarios
 - **Modal Interface**: Quick resource submission without page navigation
 - **Draft Auto-Save**: Form data automatically saved to localStorage
 - **Image Previews**: Live preview of scraped images before submission
-- **Tag System**: Multi-tag support with visual badges
+- **Tag System**: Multi-tag support with visual badges and search integration
 
 ### 🔧 **Admin Dashboard**
 
-- **Authentication**: Secure Supabase auth with session management
+- **Secure Authentication**: Supabase auth with session management and protected routes
 - **Resource Management**:
-  - Approve/reject pending submissions
-  - Edit resource details inline
-  - Re-scrape images for existing resources
-  - Bulk operations (approve, reject, delete)
-  - Resource selection with checkboxes
-- **Advanced Filtering**:
-  - Filter by status (all, pending, approved, broken)
-  - Search across name, description, URL, and tags
-  - Category-based filtering
-  - Sort by name, date, category, or status (asc/desc)
-- **Broken URL Detection**: Batch check URLs to identify broken links
+  - Approve/reject pending submissions with one-click actions
+  - Edit resource details inline (name, description, URL, category, subcategory, tags, image)
+  - Re-scrape images for existing resources with live preview
+  - Bulk operations (approve, reject, delete) with multi-select checkboxes
+  - Resource selection with "Select All" and "Clear Selection" options
+- **Advanced Filtering & Search**:
+  - Filter by status (all, pending, approved, broken URLs)
+  - Real-time search across name, description, URL, and tags
+  - Category-based filtering with resource counts
+  - Sort by name, date, category, or status (ascending/descending)
+  - Pagination with configurable page sizes
+- **Broken URL Detection**: Batch check URLs to identify broken links with detailed error reporting
 - **Category Management**:
-  - Add/delete categories
-  - Add/delete subcategories
+  - Add/delete categories with validation
+  - Add/delete subcategories with category relationships
   - Organize resources hierarchically
+  - View category statistics and resource distribution
 - **AI-Powered Categorization**:
-  - Batch processing (50 resources at a time)
-  - Groq AI suggestions for better categorization
-  - Review and apply suggestions selectively
-  - Progress tracking across batches
-  - Confidence scoring for suggestions
+  - Batch processing (50 resources at a time) using Groq AI
+  - Llama 3.1 8B Instant model for intelligent suggestions
+  - Review and apply suggestions selectively or in bulk
+  - Progress tracking across batches with detailed logging
+  - Confidence scoring for AI suggestions (high/medium/error)
+  - Category-subcategory mapping with intelligent recommendations
 - **Analytics Dashboard**:
-  - Total resource counts
-  - Status breakdown (approved/pending)
+  - Total resource counts with real-time updates
+  - Status breakdown (approved/pending/broken) with percentages
   - Category distribution with visual progress bars
-  - Percentage calculations
-- **Resource Details Modal**: View complete resource information
-- **Bulk Operations**: Multi-select and batch actions
-- **Loading Stages**: Progressive loading with stage indicators
+  - Performance metrics and insights
+- **Resource Details Modal**: View complete resource information with edit capabilities
+- **Loading States**: Progressive loading with stage indicators and skeleton screens
 
 ### 🎯 **Enterprise SEO**
 
@@ -88,46 +94,127 @@ A sleek, modern **open-source** web application where developers can discover an
 
 ### ⚡ **Performance Features**
 
-- **ISR Caching**: Homepage data cached and revalidated every 5 minutes
+- **Real-time Performance Monitoring**:
+  - Core Web Vitals tracking (CLS, INP, FCP, LCP, TTFB)
+  - Navigation timing analysis
+  - Performance observer for resource loading
+  - Console logging for development insights
+- **Advanced Caching Strategy**:
+  - ISR (Incremental Static Regeneration) with 5-minute revalidation
+  - unstable_cache for database queries with tagged invalidation
+  - In-memory caching for metadata scraping
+  - Browser caching with optimized headers (1 year for static assets)
 - **Image Optimization**:
-  - Lazy loading with skeleton states
-  - WebP and AVIF format support
-  - Responsive image sizes
-  - Blur placeholder on load
+  - Next.js Image component with WebP and AVIF format support
+  - Responsive image sizes (16px to 3840px)
+  - Lazy loading with blur placeholders
+  - Remote pattern support for any hostname
+  - Minimum cache TTL of 1 year
 - **Font Optimization**:
-  - Local font loading with `next/font/local`
-  - Work Sans with variable font weights (100-900)
+  - Local Work Sans font with variable weights (100-900)
+  - Font preloading with crossorigin attribute
   - Font display swap for better performance
-- **Code Splitting**: Automatic route-based code splitting
-- **Turbopack**: Fast development with Next.js Turbopack
-- **Bundle Analysis**: Built-in bundle analyzer script
-- **Performance Monitoring**: Real-time Core Web Vitals tracking
+  - Fallback fonts (system-ui, arial) for instant rendering
+- **Build Optimization**:
+  - Turbopack for 10x faster development builds
+  - Package import optimization for key libraries (Lenis, Lucide, Framer Motion, Radix UI)
+  - Webpack build workers for parallel processing
+  - Bundle analysis with @next/bundle-analyzer
+  - Console removal in production builds
+  - Compression enabled for all responses
+- **Code Splitting & Loading**:
+  - Automatic route-based code splitting
+  - Dynamic imports for heavy components
+  - Skeleton loading states with context-aware sizing
+  - Progressive loading with stage indicators
 
 ### 🔐 **Security & Best Practices**
 
-- **Row Level Security (RLS)**: Supabase policies for data protection
-- **Content Security Policy**: Configured CSP headers including Supabase domains
-- **Environment Variables**: Secure credential management
-- **Input Validation**: Zod schema validation for forms
-- **XSS Protection**: Security headers configured
-- **HTTPS Only**: Enforced secure connections
+- **Comprehensive Security Headers**:
+  - Content Security Policy (CSP) with strict directives
+  - X-Frame-Options: DENY to prevent clickjacking
+  - X-XSS-Protection with mode=block
+  - X-Content-Type-Options: nosniff
+  - Referrer-Policy: strict-origin-when-cross-origin
+  - Permissions-Policy for camera, microphone, geolocation
+- **Database Security**:
+  - Row Level Security (RLS) policies for all tables
+  - Authenticated user policies for resource management
+  - Public read access only for approved resources
+  - Secure Supabase client configuration
+- **Input Validation & Sanitization**:
+  - Zod schema validation for all forms
+  - URL validation and normalization
+  - XSS protection through proper escaping
+  - Type safety with TypeScript strict mode
+- **Environment Security**:
+  - Secure credential management with environment variables
+  - No sensitive data in client-side code
+  - API key protection for Groq AI integration
+- **Build Security**:
+  - TypeScript strict mode with no build errors allowed
+  - ESLint enforcement during builds
+  - Dependency vulnerability scanning
 
 ## 🛠 Tech Stack
 
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS
-- **UI Components**: shadcn/ui (customized for dark theme)
-- **Animations**: Framer Motion + Lenis smooth scrolling
-- **Backend**: Supabase (Authentication + Database + RLS)
-- **Form Validation**: React Hook Form + Zod
-- **Image Processing**:
-  - **Primary**: Microlink API (fast, reliable, 50 requests/day free)
-  - **Fallback**: Cheerio + Axios (custom scraper)
+### **Frontend**
+
+- **Framework**: Next.js 15 (App Router) with Turbopack for fast development
+- **Language**: TypeScript with strict type checking
+- **Styling**: Tailwind CSS with custom design system
+- **UI Components**: shadcn/ui (New York style) with Radix UI primitives
+- **Animations**: Framer Motion with optimized performance + Lenis smooth scrolling
+- **Icons**: Lucide React with tree-shaking optimization
+
+### **Backend & Database**
+
+- **Database**: Supabase (PostgreSQL) with Row Level Security (RLS)
+- **Authentication**: Supabase Auth with session management
+- **Real-time**: Supabase real-time subscriptions
+- **Caching**: Next.js ISR with unstable_cache for 5-minute revalidation
+
+### **AI & Automation**
+
+- **AI Categorization**: Groq SDK with Llama 3.1 8B Instant model
+- **Metadata Scraping**:
+  - **Primary**: Custom Cheerio + Axios scraper with intelligent fallbacks
   - **Multi-source**: OG image → Twitter image → First img → Favicon → Placeholder
-- **AI Integration**: Groq SDK for intelligent resource categorization
-- **SEO**: Dynamic metadata, sitemap, robots.txt, Core Web Vitals monitoring
-- **Fonts**: Work Sans (local font) with variable weights
-- **Performance**: ISR caching, image optimization, bundle analysis
-- **Security**: CSP headers, RLS policies, input validation
+  - **Caching**: In-memory cache to prevent duplicate requests
+  - **Error Handling**: Comprehensive error messages and retry logic
+
+### **Performance & SEO**
+
+- **Performance Monitoring**: Web Vitals (CLS, INP, FCP, LCP, TTFB) with real-time tracking
+- **Bundle Analysis**: @next/bundle-analyzer for optimization insights
+- **Image Optimization**: Next.js Image with WebP/AVIF support and responsive sizing
+- **Font Optimization**: Local Work Sans font with variable weights (100-900)
+- **SEO**: Dynamic metadata, sitemap, robots.txt, Open Graph, Twitter Cards
+- **PWA**: Progressive Web App ready with manifest.json
+
+### **Form & Validation**
+
+- **Forms**: React Hook Form with optimized re-renders
+- **Validation**: Zod schemas with TypeScript integration
+- **Notifications**: Sonner for toast notifications
+- **Modals**: Vaul drawer for mobile-optimized modals
+
+### **Development & Build**
+
+- **Package Manager**: pnpm for fast, efficient installs
+- **Linting**: ESLint with Next.js config
+- **Build Optimization**:
+  - Package import optimization for key libraries
+  - Webpack build workers for faster builds
+  - Console removal in production
+  - Compression and security headers
+
+### **Security**
+
+- **Content Security Policy**: Comprehensive CSP headers
+- **Security Headers**: X-Frame-Options, X-XSS-Protection, etc.
+- **Row Level Security**: Supabase RLS policies for data protection
+- **Input Sanitization**: Zod validation and type safety
 
 ## 🚀 Getting Started
 
@@ -204,9 +291,15 @@ A sleek, modern **open-source** web application where developers can discover an
    Create `.env.local`:
 
    ```env
+   # Supabase Configuration
    NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+   # AI Categorization (Optional - for admin features)
+   GROQ_API_KEY=your_groq_api_key
    ```
+
+   **Note**: The Groq API key is optional and only needed for AI-powered categorization in the admin dashboard.
 
 5. **Run the development server**
 
@@ -289,26 +382,72 @@ A sleek, modern **open-source** web application where developers can discover an
 thesupadevs/
 ├── src/
 │   ├── app/
-│   │   ├── admin/                    # Admin dashboard
-│   │   ├── api/scrape-metadata/      # Image scraping API
+│   │   ├── admin/                    # Admin dashboard with authentication
+│   │   │   └── page.tsx              # Main admin interface
+│   │   ├── api/
+│   │   │   ├── categorize/           # AI categorization endpoint
+│   │   │   │   └── route.ts          # Groq AI integration
+│   │   │   └── scrape-metadata/      # Metadata scraping API
+│   │   │       └── route.ts          # Cheerio + Axios scraper
 │   │   ├── category/[slug]/          # Dynamic category pages
-│   │   ├── opengraph-image.png       # OG image
-│   │   ├── favicon.ico               # Favicon
-│   │   ├── sitemap.ts                # Dynamic sitemap
-│   │   └── layout.tsx                # Root layout with SEO
+│   │   ├── ClientBody.tsx            # Client-side body wrapper
+│   │   ├── HomePageClient.tsx        # Main homepage component
+│   │   ├── layout.tsx                # Root layout with SEO & fonts
+│   │   ├── loading.tsx               # Custom loading animation
+│   │   ├── page.tsx                  # Homepage with ISR
+│   │   ├── sitemap.ts                # Dynamic sitemap generation
+│   │   ├── globals.css               # Global styles & animations
+│   │   ├── opengraph-image.png       # Social media image
+│   │   └── favicon.ico               # Site favicon
 │   ├── components/
-│   │   ├── ui/                       # shadcn components
-│   │   ├── home/                     # Home page components
-│   │   └── ...                       # Other components
+│   │   ├── ui/                       # shadcn/ui components
+│   │   │   ├── button.tsx            # Customized button component
+│   │   │   ├── dialog.tsx            # Modal dialogs
+│   │   │   ├── input.tsx             # Form inputs
+│   │   │   └── ...                   # Other UI primitives
+│   │   ├── admin/                    # Admin-specific components
+│   │   │   ├── AdminHeader.tsx       # Admin navigation
+│   │   │   ├── BulkCategorizationModal.tsx  # AI categorization UI
+│   │   │   ├── FilterControls.tsx    # Advanced filtering
+│   │   │   ├── LoadingScreen.tsx     # Admin loading states
+│   │   │   ├── LoginForm.tsx         # Authentication form
+│   │   │   └── ResourceCard.tsx      # Admin resource cards
+│   │   ├── home/                     # Homepage components
+│   │   │   ├── HeroSection.tsx       # Hero with CTA
+│   │   │   ├── SearchBar.tsx         # Search functionality
+│   │   │   ├── CategoryFilters.tsx   # Category navigation
+│   │   │   ├── RecentlyAdded.tsx     # Recent resources
+│   │   │   └── FooterCTA.tsx         # Footer call-to-action
+│   │   ├── add-resource-modal.tsx    # Resource submission modal
+│   │   ├── category-filter.tsx       # Category filtering
+│   │   ├── header.tsx                # Site header
+│   │   ├── performance-monitor.tsx   # Web Vitals tracking
+│   │   ├── resource-card.tsx         # Resource display card
+│   │   ├── smooth-scroll.tsx         # Lenis scroll integration
+│   │   └── theme-provider.tsx        # Dark theme provider
 │   └── lib/
 │       ├── supabase/                 # Database clients
-│       └── types/                    # TypeScript definitions
+│       │   ├── client.ts             # Client-side Supabase
+│       │   └── server.ts             # Server-side Supabase
+│       ├── types/                    # TypeScript definitions
+│       │   └── database.ts           # Database type definitions
+│       ├── cache.ts                  # ISR caching utilities
+│       └── utils.ts                  # Utility functions
 ├── public/
+│   ├── fonts/                        # Local font files
+│   │   └── Work Sans.woff2           # Variable font
 │   ├── robots.txt                    # SEO robots file
 │   ├── manifest.json                 # PWA manifest
 │   └── opengraph-image.png           # Social media image
-├── .github/                          # GitHub templates
-└── CONTRIBUTING.md                   # Contribution guidelines
+├── .github/                          # GitHub templates & workflows
+├── .env.local                        # Environment variables (local)
+├── components.json                   # shadcn/ui configuration
+├── next.config.js                    # Next.js configuration
+├── tailwind.config.ts                # Tailwind CSS config
+├── tsconfig.json                     # TypeScript configuration
+├── package.json                      # Dependencies & scripts
+├── CONTRIBUTING.md                   # Contribution guidelines
+└── README.md                         # Project documentation
 ```
 
 ## 🚀 Deployment
@@ -322,30 +461,43 @@ thesupadevs/
 ### Environment Variables
 
 ```env
+# Required - Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Optional - AI Categorization (Admin features)
+GROQ_API_KEY=your_groq_api_key
 ```
+
+**Getting API Keys:**
+
+- **Supabase**: Create a project at [supabase.com](https://supabase.com) and get your URL and anon key from Settings > API
+- **Groq** (Optional): Get a free API key at [console.groq.com](https://console.groq.com) for AI categorization features
 
 ## 📝 Available Scripts
 
 ### Development
 
-- `pnpm dev` - Development server with Turbopack (fast)
+- `pnpm dev` - Development server with Turbopack (10x faster builds)
 - `pnpm dev:no-turbo` - Development server without Turbopack
-- `pnpm build` - Production build
+- `pnpm build` - Production build with optimizations
 - `pnpm start` - Production server
-- `pnpm lint` - ESLint check
+- `pnpm lint` - ESLint check with Next.js config
 
 ### Performance & Analysis
 
 - `pnpm analyze` - Bundle size analysis with @next/bundle-analyzer
-- `pnpm lighthouse` - Lighthouse performance audit
+- `pnpm lighthouse:simple` - Basic Lighthouse audit
+- `pnpm lighthouse:desktop` - Desktop-optimized Lighthouse audit
 - `pnpm perf` - Build and start for performance testing
+- `pnpm optimize` - Run performance optimization scripts
+- `pnpm perf:test` - Performance testing suite
 
 ### Deployment
 
 - Automatic deployment on Vercel via GitHub integration
 - Environment variables configured in Vercel dashboard
+- Preview deployments for pull requests
 
 ## 🔧 Customization
 
