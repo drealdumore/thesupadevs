@@ -4,11 +4,22 @@ const nextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
 
+  // Move serverComponentsExternalPackages to root level
+  serverExternalPackages: ["@supabase/supabase-js"],
+
   experimental: {
     // ppr: true, // Disabled - only available in canary versions
     inlineCss: true,
     // reactCompiler: true, // Disabled - requires babel-plugin-react-compiler
-    optimizePackageImports: ["lenis", "lucide-react", "framer-motion"],
+    optimizePackageImports: [
+      "lenis",
+      "lucide-react",
+      "framer-motion",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+    ],
+    webpackBuildWorker: true,
+    // optimizeCss: true, // Disabled - requires critters package
   },
 
   // Build configuration - KEEP THESE FALSE FOR PRODUCTION SAFETY
@@ -29,6 +40,8 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     minimumCacheTTL: 31536000, // 1 year cache
+    dangerouslyAllowSVG: true,
+    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
     // Allow images from any hostname (use with caution in production)
     remotePatterns: [
       {
@@ -117,6 +130,10 @@ const nextConfig = {
             "form-action 'self'",
           ].join("; "),
         },
+        {
+          key: "Cache-Control",
+          value: "public, max-age=31536000, must-revalidate",
+        },
       ],
     },
     {
@@ -125,6 +142,16 @@ const nextConfig = {
         {
           key: "Cache-Control",
           value: "public, max-age=31536000, immutable",
+        },
+      ],
+    },
+    {
+      source: "/(.*)",
+      headers: [
+        {
+          key: "Link",
+          value:
+            "</fonts/Work Sans.woff2>; rel=preload; as=font; type=font/woff2; crossorigin=anonymous",
         },
       ],
     },

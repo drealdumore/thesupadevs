@@ -29,8 +29,11 @@
     "start": "next start",
     "lint": "next lint",
     "analyze": "ANALYZE=true next build",
-    "lighthouse": "lighthouse http://localhost:3000 --output=html --output-path=./lighthouse-report.html",
-    "perf": "npm run build && npm run start"
+    "lighthouse:simple": "npx lighthouse http://localhost:3000 --view",
+    "lighthouse:desktop": "npx lighthouse http://localhost:3000 --preset=desktop --view",
+    "perf": "npm run build && npm run start",
+    "optimize": "node scripts/optimize-performance.js",
+    "perf:test": "node scripts/test-performance.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -57,7 +60,6 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-hook-form": "^7.65.0",
-    "same-runtime": "^0.0.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7",
@@ -71,6 +73,7 @@
     "@types/node": "^20.17.50",
     "@types/react": "^18.3.22",
     "@types/react-dom": "^18.3.7",
+    "critters": "^0.0.25",
     "eslint": "^9.27.0",
     "eslint-config-next": "15.1.7",
     "postcss": "^8.5.3",

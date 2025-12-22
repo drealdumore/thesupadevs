@@ -99,7 +99,7 @@
     clip-path: inset(100% 0 0 0);
     opacity: 1;
   }
-  95% {
+  90% {
     clip-path: inset(0 0 0 0);
     opacity: 1;
   }
@@ -110,7 +110,7 @@
 }
 
 .imgloading-container {
-  animation: imgLoading 5s linear infinite;
+  animation: imgLoading 2.5s linear infinite;
   will-change: clip-path, opacity;
   transform-origin: 0 100%;
 }

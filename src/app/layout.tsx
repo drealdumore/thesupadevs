@@ -6,10 +6,13 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Header } from "@/components/header";
 import { Toaster } from "sonner";
 
+
 const workSans = localFont({
   src: "../../public/fonts/Work Sans.woff2",
   variable: "--font-work-sans",
   display: "swap",
+  preload: true,
+  fallback: ["system-ui", "arial"],
 });
 
 export const metadata: Metadata = {
@@ -90,7 +93,7 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
     shortcut: "/favicon.ico",
   },
-  manifest: "/manifest.json",
+  
   other: {
     "theme-color": "#000000",
     "color-scheme": "dark",
@@ -107,6 +110,20 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className={`dark`}>
+      <head>
+        <link
+          rel="preconnect"
+          href="https://nuladubutkyferivuniu.supabase.co"
+        />
+        <link rel="dns-prefetch" href="https://vitals.vercel-insights.com" />
+        <link
+          rel="preload"
+          href="/fonts/Work Sans.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+      </head>
       <body className={`${workSans.variable} antialiased font-sans`}>
         <ThemeProvider>
           <ClientBody>

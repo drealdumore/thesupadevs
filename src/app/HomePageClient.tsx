@@ -90,10 +90,14 @@ export default function HomePageClient({
   const [subcategories] = useState<SubcategoryData[]>(initialSubcategories);
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const categoryRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   useEffect(() => {
+    // Mark as loaded immediately to show content
+    setIsLoaded(true);
+
     // Keyboard navigation
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "/" && !e.ctrlKey && !e.metaKey) {
@@ -230,7 +234,7 @@ export default function HomePageClient({
                 }}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: categoryIndex * 0.1 }}
+                transition={{ duration: 0.3, delay: categoryIndex * 0.05 }}
               >
                 <div className="flex items-center gap-3">
                   <div
@@ -258,8 +262,8 @@ export default function HomePageClient({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{
-                    duration: 0.4,
-                    delay: categoryIndex * 0.1 + 0.2,
+                    duration: 0.2,
+                    delay: categoryIndex * 0.05 + 0.1,
                   }}
                 >
                   {categorySubcategories.map((subcat, subcatIndex) => {
@@ -288,8 +292,9 @@ export default function HomePageClient({
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
-                          duration: 0.3,
-                          delay: categoryIndex * 0.1 + 0.3 + subcatIndex * 0.05,
+                          duration: 0.2,
+                          delay:
+                            categoryIndex * 0.05 + 0.15 + subcatIndex * 0.02,
                         }}
                         whileHover={{ scale: 1.02 }}
                       >
@@ -309,8 +314,9 @@ export default function HomePageClient({
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
-                          duration: 0.3,
-                          delay: categoryIndex * 0.1 + 0.3 + subcatIndex * 0.05,
+                          duration: 0.2,
+                          delay:
+                            categoryIndex * 0.05 + 0.15 + subcatIndex * 0.02,
                         }}
                         whileHover={{ scale: 1.02, y: -2 }}
                         whileTap={{ scale: 0.98 }}
