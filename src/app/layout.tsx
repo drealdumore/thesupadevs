@@ -1,24 +1,15 @@
 import type { Metadata } from "next";
-import { Sora } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import ClientBody from "./ClientBody";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Header } from "@/components/header";
 import { Toaster } from "sonner";
 
-const sora = Sora({
-  subsets: ["latin"],
+const workSans = localFont({
+  src: "../../public/fonts/Work Sans.woff2",
+  variable: "--font-work-sans",
   display: "swap",
-  variable: "--font-sora",
-  fallback: [
-    "system-ui",
-    "-apple-system",
-    "BlinkMacSystemFont",
-    "Segoe UI",
-    "Roboto",
-    "sans-serif",
-  ],
-  preload: true,
 });
 
 export const metadata: Metadata = {
@@ -115,12 +106,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="en"
-      suppressHydrationWarning
-      className={`dark ${sora.variable}`}
-    >
-      <body className={`antialiased font-sans`}>
+    <html lang="en" suppressHydrationWarning className={`dark`}>
+      <body className={`${workSans.variable} antialiased font-sans`}>
         <ThemeProvider>
           <ClientBody>
             <Header />
