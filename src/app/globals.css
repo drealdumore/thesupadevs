@@ -95,3 +95,26 @@
 *::-webkit-scrollbar-corner {
   /* background: hsl(var(--muted)); */
 }
+
+
+/* Added ShopStation loader animation */
+@keyframes imgLoading {
+  0% {
+    clip-path: inset(100% 0 0 0);
+    opacity: 1;
+  }
+  95% {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+  }
+  100% {
+    clip-path: inset(0 0 0 0);
+    opacity: 0;
+  }
+}
+
+.imgloading-container {
+  animation: imgLoading 5s linear infinite;
+  will-change: clip-path, opacity;
+  transform-origin: 0 100%;
+}
