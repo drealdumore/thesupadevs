@@ -27,6 +27,8 @@ export default function CategoryPageClient({
 
   useEffect(() => {
     async function fetchData() {
+      setLoading(true);
+      setResources([]); // Clear resources immediately when parameters change
       try {
         const supabase = createClient();
 
@@ -116,7 +118,9 @@ export default function CategoryPageClient({
           {[...Array(6)].map((_, i) => (
             <div
               key={i}
-              className="h-20 bg-muted/30 animate-pulse rounded-lg"
+              className={`bg-muted/30 animate-pulse rounded-lg ${
+                subcategory ? "h-48" : "h-20"
+              }`}
             />
           ))}
         </div>
