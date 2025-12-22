@@ -36,7 +36,6 @@ async function scrapeMetadata(url: string) {
     $('meta[name="description"]').attr("content") ||
     $('meta[property="og:description"]').attr("content");
 
-  // Try multiple image sources like your deployed app
   const ogImage = $('meta[property="og:image"]').attr("content");
   const twitterImage = $('meta[name="twitter:image"]').attr("content");
   const twitterImageSrc = $('meta[name="twitter:image:src"]').attr("content");
