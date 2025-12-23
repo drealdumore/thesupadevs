@@ -1,0 +1,246 @@
+# TheSupaDevs - LLM Context File
+
+## Project Overview
+TheSupaDevs is a modern, open-source web application for discovering and sharing curated developer resources. It's a comprehensive library of 1000+ developer tools, libraries, frameworks, and resources organized by categories like Frontend, Backend, DevOps, Design, Tools, and Learning.
+
+**Live URL**: https://thesupadevs.vercel.app
+**Repository**: https://github.com/drealdumore/thesupadevs
+
+## Architecture & Tech Stack
+
+### Core Framework
+- **Next.js 15** with App Router and Turbopack for development
+- **TypeScript** with strict type checking
+- **React 18** with modern hooks and patterns
+
+### Database & Backend
+- **Supabase** (PostgreSQL) with Row Level Security (RLS)
+- **Supabase Auth** for authentication and session management
+- **Real-time subscriptions** for live data updates
+
+### Styling & UI
+- **Tailwind CSS** with custom design system
+- **shadcn/ui** components (New York style) with Radix UI primitives
+- **Framer Motion** for animations and micro-interactions
+- **Lenis** for smooth scrolling experience
+- **Lucide React** icons with tree-shaking
+
+### Performance & Optimization
+- **ISR (Incremental Static Regeneration)** with 5-minute revalidation
+- **unstable_cache** for database queries with tagged invalidation
+- **Next.js Image** optimization with WebP/AVIF support
+- **Local fonts** (Work Sans variable) with preloading
+- **Core Web Vitals** monitoring and optimization
+
+### AI & Automation
+- **Groq SDK** with Llama 3.1 8B Instant model for AI categorization
+- **Custom metadata scraper** using Cheerio + Axios with intelligent fallbacks
+- **In-memory caching** for scraping to prevent duplicate requests
+
+## Database Schema
+
+### Core Tables
+1. **resources** - Main resource entries
+   - id (UUID), name, category, subcategory, description, url, tags[], status, image_url, created_at
+   - Status: 'pending' | 'approved'
+   - RLS policies for public read (approved only) and authenticated write
+
+2. **categories** - Resource categories
+   - id (UUID), name, description, created_at
+   - Examples: Frontend, Backend, DevOps, Design, Tools, Learning
+
+3. **subcategories** - Nested categorization
+   - id (UUID), name, category_id (FK), created_at
+   - Examples: React, Vue, Angular under Frontend
+
+## Key Features & Components
+
+### Public Features
+- **Resource Discovery**: Browse 1000+ curated resources with search and filtering
+- **Smart Search**: Real-time search with keyboard shortcuts (Press '/' to focus)
+- **Category Navigation**: Hierarchical browsing with categories and subcategories
+- **Resource Submission**: Modal interface for submitting new resources
+- **Metadata Scraping**: Automatic title, description, and image extraction from URLs
+- **Tag System**: Multi-tag support with visual badges
+
+### Admin Dashboard (`/admin`)
+- **Resource Management**: Approve/reject pending submissions, edit details, bulk operations
+- **AI Categorization**: Batch processing with Groq AI for intelligent categorization
+- **Broken URL Detection**: Batch checking for broken links
+- **Category Management**: Add/remove categories and subcategories
+- **Analytics**: Resource counts, status breakdown, category distribution
+
+### Performance Monitoring
+- **Real-time Web Vitals**: CLS, INP, FCP, LCP, TTFB tracking
+- **Performance Observer**: Resource loading analysis
+- **Console logging** for development insights
+
+## File Structure & Key Components
+
+### App Router Structure
+```
+src/app/
+├── admin/page.tsx              # Admin dashboard
+├── api/
+│   ├── categorize/route.ts     # AI categorization endpoint
+│   └── scrape-metadata/route.ts # Metadata scraping API
+├── category/[slug]/            # Dynamic category pages
+├── HomePageClient.tsx          # Main homepage component
+├── layout.tsx                  # Root layout with SEO
+├── page.tsx                    # Homepage with ISR
+└── sitemap.ts                  # Dynamic sitemap
+```
+
+### Key Components
+- **AddResourceModal**: Resource submission with auto-scraping and validation
+- **ResourceCard**: Display component for individual resources
+- **CategoryFilter**: Category navigation and filtering
+- **PerformanceMonitor**: Web Vitals tracking component
+- **AdminHeader**: Admin navigation and authentication
+
+### Library Structure
+```
+src/lib/
+├── supabase/
+│   ├── client.ts              # Client-side Supabase
+│   └── server.ts              # Server-side Supabase
+├── types/database.ts          # TypeScript definitions
+├── cache.ts                   # ISR caching utilities
+└── utils.ts                   # Utility functions
+```
+
+## Development Patterns & Conventions
+
+### State Management
+- **React Hook Form** with Zod validation for forms
+- **Local state** with useState/useEffect for component state
+- **Supabase real-time** for live data updates
+- **localStorage** for draft auto-save functionality
+
+### Data Fetching
+- **Server Components** for initial data loading with ISR
+- **Client Components** for interactive features
+- **Supabase client** for real-time updates and mutations
+- **Cached queries** using unstable_cache with revalidation tags
+
+### Error Handling
+- **Comprehensive error boundaries** for graceful failures
+- **Toast notifications** using Sonner for user feedback
+- **Detailed error messages** for different failure scenarios
+- **Retry logic** for network requests and scraping
+
+### Security
+- **Row Level Security (RLS)** policies on all tables
+- **Content Security Policy (CSP)** headers
+- **Input validation** with Zod schemas
+- **URL normalization** and validation for submissions
+
+## Environment Variables
+```
+# Required
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Optional (for AI features)
+GROQ_API_KEY=your_groq_api_key
+```
+
+## Build & Deployment
+
+### Scripts
+- `pnpm dev` - Development with Turbopack
+- `pnpm build` - Production build with optimizations
+- `pnpm analyze` - Bundle analysis
+- `pnpm lighthouse:desktop` - Performance auditing
+
+### Deployment
+- **Vercel** deployment with automatic GitHub integration
+- **Environment variables** configured in Vercel dashboard
+- **Preview deployments** for pull requests
+- **ISR** with 5-minute revalidation for dynamic content
+
+## SEO & Performance Features
+
+### SEO Optimization
+- **Dynamic metadata** with resource counts from database
+- **Open Graph** and Twitter Card optimization
+- **Structured data** ready for rich snippets
+- **Dynamic sitemap** that updates with new categories
+- **PWA manifest** for app-like experience
+
+### Performance Features
+- **Core Web Vitals** optimization and monitoring
+- **Image optimization** with responsive sizing and modern formats
+- **Font optimization** with local fonts and preloading
+- **Code splitting** and lazy loading
+- **Compression** and caching headers
+
+## Common Tasks & Workflows
+
+### Adding New Resources
+1. Use AddResourceModal component
+2. URL validation and normalization
+3. Automatic metadata scraping with fallbacks
+4. Draft auto-save to localStorage
+5. Submission to 'pending' status for admin review
+
+### Admin Workflows
+1. Review pending submissions in admin dashboard
+2. Use AI categorization for batch processing
+3. Edit resource details inline
+4. Approve/reject with bulk operations
+5. Monitor broken URLs and fix issues
+
+### Category Management
+1. Add categories through admin interface
+2. Create subcategories with proper relationships
+3. Update category icons in HomePageClient.tsx
+4. Ensure proper RLS policies for new data
+
+## Code Style & Best Practices
+
+### TypeScript
+- Strict mode enabled with no build errors allowed
+- Proper type definitions for all database entities
+- Zod schemas for runtime validation
+- Interface definitions for component props
+
+### React Patterns
+- Server Components for data fetching
+- Client Components for interactivity
+- Custom hooks for reusable logic
+- Proper error boundaries and loading states
+
+### Performance
+- Minimize client-side JavaScript
+- Use ISR for static generation with dynamic data
+- Implement proper caching strategies
+- Monitor and optimize Core Web Vitals
+
+### Accessibility
+- Semantic HTML structure
+- Proper ARIA labels and roles
+- Keyboard navigation support
+- Screen reader compatibility
+
+## Troubleshooting Common Issues
+
+### Metadata Scraping
+- Check URL format and accessibility
+- Verify CORS policies for target sites
+- Handle timeout and network errors gracefully
+- Implement proper fallback strategies
+
+### Database Issues
+- Verify RLS policies for data access
+- Check foreign key relationships
+- Ensure proper indexing for performance
+- Monitor connection limits
+
+### Performance Issues
+- Use bundle analyzer to identify large dependencies
+- Implement proper code splitting
+- Optimize images and fonts
+- Monitor Core Web Vitals in production
+
+This context should help you understand the codebase structure, key features, and development patterns used in TheSupaDevs.
