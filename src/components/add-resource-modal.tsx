@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -27,7 +28,6 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { useEffect } from "react";
 import type { Category } from "@/lib/types/database";
 import {
   SimpleKitModal,
@@ -37,21 +37,66 @@ import {
   SimpleKitModalTitle,
   SimpleKitModalBody,
   SimpleKitModalFooter,
-  SimpleKitModalClose,
 } from "@/components/ui/simple-kit-modal";
 
 const resourceSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
-  category: z.string().min(1, "Category is required"),
+  category: z.string().min(1, "Pick a category"),
   subcategory: z.string().optional(),
   description: z.string().min(10, "Description must be at least 10 characters"),
-  url: z.string().url("Must be a valid URL"),
+  url: z.string().url("Enter a valid URL, like https://example.com"),
 });
 
 type ResourceForm = z.infer<typeof resourceSchema>;
+type Timer = ReturnType<typeof setTimeout>;
 
 interface AddResourceModalProps {
   children: React.ReactNode;
+}
+
+const MAX_TAGS = 10;
+
+const normalizeUrl = (url: string): string => {
+  let normalized = url.trim();
+  if (!/^https?:\/\//i.test(normalized)) normalized = "https://" + normalized;
+  return normalized.replace(/\/$/, "");
+};
+
+const isValidDomain = (url: string): boolean => {
+  try {
+    return new URL(url).hostname.includes(".");
+  } catch {
+    return false;
+  }
+};
+
+function Field({
+  id,
+  label,
+  required,
+  error,
+  children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>
+        {label}
+        {required && (
+          <span className="ml-0.5 text-destructive" aria-hidden="true">
+            *
+          </span>
+        )}
+      </Label>
+      {children}
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </div>
+  );
 }
 
 export function AddResourceModal({ children }: AddResourceModalProps) {
@@ -63,21 +108,22 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   const [scrapedImage, setScrapedImage] = useState<string | null>(null);
   const [scraping, setScraping] = useState(false);
   const [urlValue, setUrlValue] = useState("");
-  const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(
-    null
-  );
   const [urlValid, setUrlValid] = useState<boolean | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
   const [autoFilled, setAutoFilled] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
-  const [skipTimer, setSkipTimer] = useState<NodeJS.Timeout | null>(null);
-  const [lastScrapedUrl, setLastScrapedUrl] = useState<string>("");
+  const [lastScrapedUrl, setLastScrapedUrl] = useState("");
   const [categories, setCategories] = useState<{ id: string; name: string }[]>(
     []
   );
   const [subcategories, setSubcategories] = useState<
     { id: string; name: string; category_id: string }[]
   >([]);
+
+  // Refs, not state: timers and request ids must never be stale inside callbacks
+  const debounceRef = useRef<Timer | null>(null);
+  const skipRef = useRef<Timer | null>(null);
+  const requestId = useRef(0);
 
   const {
     register,
@@ -91,96 +137,10 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
     resolver: zodResolver(resourceSchema),
   });
 
-  const normalizeUrl = (url: string): string => {
-    let normalized = url.trim();
-
-    // Add https:// if no protocol
-    if (
-      !normalized.startsWith("http://") &&
-      !normalized.startsWith("https://")
-    ) {
-      normalized = "https://" + normalized;
-    }
-
-    // Remove trailing slash
-    if (normalized.endsWith("/")) {
-      normalized = normalized.slice(0, -1);
-    }
-
-    return normalized;
-  };
-
-  const isValidDomain = (url: string): boolean => {
-    try {
-      const urlObj = new URL(url);
-      return urlObj.hostname.includes(".");
-    } catch {
-      return false;
-    }
-  };
-
-  // Fetch categories and subcategories
-  useEffect(() => {
-    if (open) {
-      fetchCategoriesAndSubcategories();
-
-      const draft = localStorage.getItem("resource-draft");
-      if (draft) {
-        try {
-          const parsed = JSON.parse(draft);
-          if (parsed.name) setValue("name", parsed.name);
-          if (parsed.description) setValue("description", parsed.description);
-          if (parsed.url) {
-            setUrlValue(parsed.url);
-            setValue("url", parsed.url);
-          }
-          if (parsed.tags) setTags(parsed.tags);
-          toast.info("Draft restored", {
-            description: "Your previous work was saved",
-          });
-        } catch (e) {
-          console.error("Failed to parse draft", e);
-        }
-      }
-    }
-  }, [open, setValue]);
-
-  const fetchCategoriesAndSubcategories = async () => {
-    try {
-      const supabase = createClient();
-      const [categoriesRes, subcategoriesRes] = await Promise.all([
-        supabase.from("categories").select("*").order("name"),
-        supabase.from("subcategories").select("*").order("name"),
-      ]);
-
-      if (categoriesRes.error) throw categoriesRes.error;
-      if (subcategoriesRes.error) throw subcategoriesRes.error;
-
-      setCategories(categoriesRes.data || []);
-      setSubcategories(subcategoriesRes.data || []);
-    } catch (error) {
-      console.error("Error fetching categories:", error);
-    }
-  };
-
-  // Save draft to localStorage
-  useEffect(() => {
-    if (open) {
-      const nameValue = watch("name");
-      const descriptionValue = watch("description");
-      const draft = {
-        name: nameValue,
-        description: descriptionValue,
-        url: urlValue,
-        tags,
-      };
-      if (draft.name || draft.description || draft.url) {
-        localStorage.setItem("resource-draft", JSON.stringify(draft));
-      }
-    }
-  }, [watch, urlValue, tags, open]);
-
+  const [nameValue, descriptionValue] = watch(["name", "description"]);
   const selectedCategory = watch("category");
+  const selectedSubcategory = watch("subcategory");
+
   const selectedCategoryData = categories.find(
     (c) => c.name === selectedCategory
   );
@@ -188,15 +148,73 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
     ? subcategories.filter((s) => s.category_id === selectedCategoryData.id)
     : [];
 
-  // Ensure subcategory is cleared whenever the selected category changes
+  const clearTimers = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (skipRef.current) clearTimeout(skipRef.current);
+  };
+
+  useEffect(() => clearTimers, []);
+
+  // Load categories, then restore any saved draft, whenever the modal opens
   useEffect(() => {
-    // Reset subcategory value and clear any validation errors for it
-    setValue("subcategory", "");
-    try {
-      clearErrors?.("subcategory");
-    } catch (e) {
-      // ignore if clearErrors isn't available for some reason
+    if (!open) return;
+
+    (async () => {
+      try {
+        const supabase = createClient();
+        const [categoriesRes, subcategoriesRes] = await Promise.all([
+          supabase.from("categories").select("*").order("name"),
+          supabase.from("subcategories").select("*").order("name"),
+        ]);
+        if (categoriesRes.error) throw categoriesRes.error;
+        if (subcategoriesRes.error) throw subcategoriesRes.error;
+        setCategories(categoriesRes.data || []);
+        setSubcategories(subcategoriesRes.data || []);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    })();
+
+    const draft = localStorage.getItem("resource-draft");
+    if (draft) {
+      try {
+        const parsed = JSON.parse(draft);
+        if (parsed.name) setValue("name", parsed.name);
+        if (parsed.description) setValue("description", parsed.description);
+        if (parsed.url) {
+          setUrlValue(parsed.url);
+          setValue("url", parsed.url);
+        }
+        if (parsed.tags) setTags(parsed.tags);
+        toast.info("Draft restored", {
+          description: "Your previous work was saved.",
+        });
+      } catch (e) {
+        console.error("Failed to parse draft", e);
+      }
     }
+  }, [open, setValue]);
+
+  // Save draft (watching the values means name and description are saved too)
+  useEffect(() => {
+    if (!open || success) return;
+    if (nameValue || descriptionValue || urlValue) {
+      localStorage.setItem(
+        "resource-draft",
+        JSON.stringify({
+          name: nameValue,
+          description: descriptionValue,
+          url: urlValue,
+          tags,
+        })
+      );
+    }
+  }, [open, success, nameValue, descriptionValue, urlValue, tags]);
+
+  // A subcategory only makes sense for its own category
+  useEffect(() => {
+    setValue("subcategory", "");
+    clearErrors("subcategory");
   }, [selectedCategory, setValue, clearErrors]);
 
   const checkDuplicateUrl = async (url: string): Promise<boolean> => {
@@ -214,56 +232,46 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   };
 
   const scrapeMetadata = async (url: string) => {
-    // Normalize URL
     const normalized = normalizeUrl(url);
 
-    // Validate domain
     if (!isValidDomain(normalized)) {
-      setUrlError("Please enter a valid domain (e.g., example.com)");
+      setUrlValid(false);
+      setUrlError("Enter a valid domain, like example.com.");
       return;
     }
 
-    // Update URL field with normalized version
     if (normalized !== url) {
       setUrlValue(normalized);
-      setValue("url", normalized);
+      setValue("url", normalized, { shouldValidate: true });
     }
 
-    // Check if URL changed - clear previous data
     if (lastScrapedUrl && lastScrapedUrl !== normalized) {
       setScrapedImage(null);
-      setUrlValid(null);
       setAutoFilled(false);
     }
 
-    // Check for duplicate
-    const isDuplicate = await checkDuplicateUrl(normalized);
-    if (isDuplicate) {
-      setUrlValid(false);
-      setUrlError("This resource already exists in our library!");
-      return;
-    }
-
+    const id = ++requestId.current; // later calls win; older responses are ignored
     setScraping(true);
     setUrlValid(null);
     setUrlError(null);
-    setAutoFilled(false);
     setShowSkip(false);
 
-    // Show skip button after 3 seconds
-    const timer = setTimeout(() => {
-      setShowSkip(true);
-    }, 3000);
-    setSkipTimer(timer);
+    if (skipRef.current) clearTimeout(skipRef.current);
+    skipRef.current = setTimeout(() => setShowSkip(true), 3000);
 
     try {
+      if (await checkDuplicateUrl(normalized)) {
+        if (id !== requestId.current) return;
+        setUrlValid(false);
+        setUrlError("This resource is already in the library.");
+        return;
+      }
+
       const response = await fetch(
         `/api/scrape-metadata?url=${encodeURIComponent(normalized)}`
       );
       const data = await response.json();
-
-      if (skipTimer) clearTimeout(skipTimer);
-      setShowSkip(false);
+      if (id !== requestId.current) return;
 
       if (data.error) {
         setUrlValid(false);
@@ -276,7 +284,6 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
         setScrapedImage(data.metadata.image);
         setLastScrapedUrl(normalized);
 
-        // Auto-fill fields
         if (data.metadata.title) {
           setValue("name", data.metadata.title, { shouldValidate: true });
           setAutoFilled(true);
@@ -290,48 +297,56 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       }
     } catch (error) {
       console.error("Error scraping metadata:", error);
-      if (skipTimer) clearTimeout(skipTimer);
-      setShowSkip(false);
+      if (id !== requestId.current) return;
       setUrlValid(false);
-      setUrlError(
-        "Can't connect to this URL. Please check if it's correct and accessible."
-      );
+      setUrlError("Can't reach this URL. Check that it's correct and public.");
     } finally {
-      setScraping(false);
+      if (id === requestId.current) {
+        if (skipRef.current) clearTimeout(skipRef.current);
+        setShowSkip(false);
+        setScraping(false);
+      }
     }
+  };
+
+  const debouncedScrape = (url: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => scrapeMetadata(url), 800);
   };
 
   const manualRescrape = () => {
     if (!urlValue.trim()) return;
-
-    // Clear all previous state
     setScrapedImage(null);
     setUrlValid(null);
     setUrlError(null);
     setAutoFilled(false);
     setLastScrapedUrl("");
-
-    // Trigger fresh scrape
     scrapeMetadata(urlValue);
   };
 
   const skipScraping = () => {
-    if (skipTimer) clearTimeout(skipTimer);
-    if (debounceTimer) clearTimeout(debounceTimer);
+    clearTimers();
+    requestId.current++; // drop any in-flight response
     setScraping(false);
     setShowSkip(false);
     setUrlValid(null);
     setUrlError(null);
   };
 
-  const debouncedScrape = (url: string) => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-    const timer = setTimeout(() => {
-      scrapeMetadata(url);
-    }, 800);
-    setDebounceTimer(timer);
+  const resetAll = () => {
+    clearTimers();
+    requestId.current++;
+    reset();
+    setTags([]);
+    setTagInput("");
+    setScrapedImage(null);
+    setUrlValue("");
+    setUrlValid(null);
+    setUrlError(null);
+    setAutoFilled(false);
+    setLastScrapedUrl("");
+    setScraping(false);
+    setShowSkip(false);
   };
 
   const onSubmit = async (data: ResourceForm) => {
@@ -348,18 +363,13 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
         status: "pending",
         image_url: scrapedImage,
       });
-
       if (error) throw error;
 
       setSuccess(true);
-      reset();
-      setTags([]);
-      setScrapedImage(null);
-      setUrlValue("");
+      resetAll();
       localStorage.removeItem("resource-draft");
-
-      toast.success("Resource submitted!", {
-        description: "Your resource has been submitted for review.",
+      toast.success("Resource submitted", {
+        description: "We'll review it and add it to the library.",
       });
 
       setTimeout(() => {
@@ -368,8 +378,8 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       }, 2000);
     } catch (error) {
       console.error("Error submitting resource:", error);
-      toast.error("Failed to submit", {
-        description: "Please try again or contact support.",
+      toast.error("Couldn't submit your resource", {
+        description: "Try again in a moment, or contact support.",
       });
     } finally {
       setSubmitting(false);
@@ -377,15 +387,22 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
   };
 
   const addTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput("");
-    }
+    const tag = tagInput.trim().replace(/,$/, "");
+    if (!tag || tags.includes(tag) || tags.length >= MAX_TAGS) return;
+    setTags([...tags, tag]);
+    setTagInput("");
   };
 
-  const removeTag = (tagToRemove: string) => {
+  const removeTag = (tagToRemove: string) =>
     setTags(tags.filter((tag) => tag !== tagToRemove));
-  };
+
+  const urlRegister = register("url", {
+    onChange: (e) => {
+      const value = e.target.value as string;
+      setUrlValue(value);
+      if (value.length > 3) debouncedScrape(value);
+    },
+  });
 
   return (
     <SimpleKitModal
@@ -393,9 +410,7 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       onOpenChange={(isOpen) => {
         setOpen(isOpen);
         if (!isOpen) {
-          // Cleanup on close
-          if (debounceTimer) clearTimeout(debounceTimer);
-          if (skipTimer) clearTimeout(skipTimer);
+          clearTimers();
           setScraping(false);
           setShowSkip(false);
         }
@@ -404,139 +419,70 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       <SimpleKitModalTrigger asChild>{children}</SimpleKitModalTrigger>
       <SimpleKitModalContent>
         <SimpleKitModalHeader>
-          <SimpleKitModalTitle>Submit a Developer Resource</SimpleKitModalTitle>
-          <p className="text-sm text-muted-foreground text-center mt-2">
-            Share a developer tool or resource you find useful. If approved, it
-            will appear in the main collection.
+          <SimpleKitModalTitle>Submit a resource</SimpleKitModalTitle>
+          <p className="mt-2 text-center text-sm text-muted-foreground">
+            Paste a link and we&apos;ll fill in the rest. Approved resources
+            join the main library.
           </p>
         </SimpleKitModalHeader>
+
         <SimpleKitModalBody>
           {success ? (
-            <div className="py-12 text-center space-y-4">
-              <div className="mx-auto h-12 w-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-                {/* biome-ignore lint/a11y/noSvgWithoutTitle: <explanation> */}
-                <svg
-                  className="h-6 w-6 text-green-600 dark:text-green-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-              <h3 className="font-display text-xl font-semibold">
-                Resource Submitted!
+            <motion.div
+              className="space-y-4 py-12 text-center"
+              initial={{ opacity: 0, transform: "scale(0.95)" }}
+              animate={{ opacity: 1, transform: "scale(1)" }}
+              transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+            >
+              <motion.div
+                className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30"
+                initial={{ transform: "scale(0.5)", opacity: 0 }}
+                animate={{ transform: "scale(1)", opacity: 1 }}
+                transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1], delay: 0.05 }}
+              >
+                <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </motion.div>
+              <h3 className="font-heading text-xl font-semibold">
+                Resource submitted
               </h3>
               <p className="text-muted-foreground">
-                Your resource has been submitted for review.
+                We&apos;ll review it and add it to the library.
               </p>
-            </div>
+            </motion.div>
           ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="name">Resource Name *</Label>
-                <Input
-                  id="name"
-                  placeholder="e.g., Framer Motion"
-                  {...register("name")}
-                  value={watch("name") || ""}
-                  onChange={(e) => setValue("name", e.target.value)}
-                />
-                {errors.name && (
-                  <p className="text-sm text-destructive">
-                    {errors.name.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="category">Category *</Label>
-                <Select onValueChange={(value) => setValue("category", value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {errors.category && (
-                  <p className="text-sm text-destructive">
-                    {errors.category.message}
-                  </p>
-                )}
-              </div>
-
-              {selectedCategory && availableSubcategories.length > 0 && (
-                <div className="space-y-2">
-                  <Label htmlFor="subcategory">Subcategory</Label>
-                  <Select
-                    onValueChange={(value) => setValue("subcategory", value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a subcategory (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableSubcategories.map((subcat) => (
-                        <SelectItem key={subcat.id} value={subcat.name}>
-                          {subcat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description *</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Describe what this resource does and why it's useful..."
-                  rows={4}
-                  {...register("description")}
-                  value={watch("description") || ""}
-                  onChange={(e) => setValue("description", e.target.value)}
-                />
-                {errors.description && (
-                  <p className="text-sm text-destructive">
-                    {errors.description.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="url">URL *</Label>
+            <form
+              id="resource-form"
+              onSubmit={handleSubmit(onSubmit)}
+              className="space-y-5"
+            >
+              {/* URL first: it fills in the name and description below */}
+              <Field id="url" label="Link" required error={errors.url?.message}>
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Input
                       id="url"
-                      type="url"
+                      type="text"
+                      inputMode="url"
+                      autoComplete="off"
                       placeholder="example.com or https://example.com"
-                      {...register("url")}
-                      value={urlValue}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        setUrlValue(value);
-                        setValue("url", value);
-                        if (value.length > 3) {
-                          debouncedScrape(value);
+                      aria-invalid={urlValid === false}
+                      {...urlRegister}
+                      onBlur={(e) => {
+                        urlRegister.onBlur(e);
+                        const v = e.target.value.trim();
+                        if (v && !/^https?:\/\//i.test(v)) {
+                          const n = normalizeUrl(v);
+                          setUrlValue(n);
+                          setValue("url", n, { shouldValidate: true });
                         }
                       }}
-                      className={
+                      className={`pr-10 ${
                         urlValid === true
                           ? "border-green-500"
                           : urlValid === false
-                          ? "border-red-500"
+                          ? "border-destructive"
                           : ""
-                      }
+                      }`}
                     />
                     <div className="absolute right-3 top-1/2 -translate-y-1/2">
                       {scraping && (
@@ -546,7 +492,7 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
                       )}
                       {!scraping && urlValid === false && (
-                        <XCircle className="h-4 w-4 text-red-500" />
+                        <XCircle className="h-4 w-4 text-destructive" />
                       )}
                     </div>
                   </div>
@@ -557,7 +503,8 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                       size="sm"
                       onClick={manualRescrape}
                       className="px-3"
-                      title="Rescrape URL"
+                      aria-label="Fetch details again"
+                      title="Fetch details again"
                     >
                       <RotateCcw className="h-4 w-4" />
                     </Button>
@@ -573,55 +520,125 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                     </Button>
                   )}
                 </div>
-                {errors.url && (
-                  <p className="text-sm text-destructive">
-                    {errors.url.message}
-                  </p>
-                )}
+
                 {urlError && (
-                  <p className="text-sm text-red-500 flex items-center gap-1">
+                  <p className="flex items-center gap-1 text-sm text-destructive">
                     <XCircle className="h-3 w-3" />
                     {urlError}
                   </p>
                 )}
                 {urlValid && autoFilled && (
-                  <p className="text-sm text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <p className="flex items-center gap-1 text-sm text-green-600 dark:text-green-400">
                     <Sparkles className="h-3 w-3" />
-                    Fields auto-filled from website. Feel free to edit!
+                    Filled in from the website. Edit anything you like.
                   </p>
                 )}
-                {scrapedImage && (
-                  <div className="mt-2 p-2 border rounded-lg">
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Preview Image:
-                    </p>
+                {scrapedImage ? (
+                  <div className="mt-2 rounded-xl border p-2">
                     <img
                       src={scrapedImage}
-                      alt="Resource preview"
-                      className="w-full h-32 object-cover rounded"
+                      alt="Preview of the resource"
+                      className="aspect-video w-full rounded-md object-cover"
                       onError={(e) => {
                         e.currentTarget.style.display = "none";
                       }}
                     />
                   </div>
+                ) : (
+                  !scraping &&
+                  urlValue && (
+                    <div className="mt-2 flex items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-sm text-muted-foreground">
+                      <ImageIcon className="h-5 w-5" />
+                      No preview image found
+                    </div>
+                  )
                 )}
-                {!scrapedImage && !scraping && urlValue && (
-                  <div className="mt-2 p-4 border border-dashed rounded-lg flex items-center justify-center text-muted-foreground">
-                    <ImageIcon className="h-8 w-8" />
-                  </div>
+              </Field>
+
+              <Field
+                id="name"
+                label="Name"
+                required
+                error={errors.name?.message}
+              >
+                <Input
+                  id="name"
+                  placeholder="e.g., Framer Motion"
+                  {...register("name")}
+                />
+              </Field>
+
+              <Field
+                id="description"
+                label="Description"
+                required
+                error={errors.description?.message}
+              >
+                <Textarea
+                  id="description"
+                  placeholder="What does it do, and why is it useful?"
+                  rows={4}
+                  {...register("description")}
+                />
+              </Field>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  id="category"
+                  label="Category"
+                  required
+                  error={errors.category?.message}
+                >
+                  <Select
+                    value={selectedCategory || ""}
+                    onValueChange={(value) =>
+                      setValue("category", value, { shouldValidate: true })
+                    }
+                  >
+                    <SelectTrigger id="category">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                {selectedCategory && availableSubcategories.length > 0 && (
+                  <Field id="subcategory" label="Subcategory">
+                    <Select
+                      value={selectedSubcategory || ""}
+                      onValueChange={(value) => setValue("subcategory", value)}
+                    >
+                      <SelectTrigger id="subcategory">
+                        <SelectValue placeholder="Optional" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSubcategories.map((subcat) => (
+                          <SelectItem key={subcat.id} value={subcat.name}>
+                            {subcat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="tags">Tags</Label>
+              <Field id="tags" label="Tags">
                 <div className="flex gap-2">
                   <Input
                     id="tags"
-                    placeholder="Add a tag and press Enter"
+                    placeholder="Type a tag, then press Enter"
                     value={tagInput}
+                    disabled={tags.length >= MAX_TAGS}
                     onChange={(e) => setTagInput(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") {
+                      if (e.key === "Enter" || e.key === ",") {
                         e.preventDefault();
                         addTag();
                       }
@@ -632,14 +649,15 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                   </Button>
                 </div>
                 {tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
+                  <div className="mt-2 flex flex-wrap gap-2">
                     {tags.map((tag) => (
                       <Badge key={tag} variant="secondary" className="gap-1">
                         {tag}
                         <button
                           type="button"
                           onClick={() => removeTag(tag)}
-                          className="ml-1 hover:text-destructive"
+                          aria-label={`Remove tag ${tag}`}
+                          className="ml-1 rounded hover:text-destructive"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -647,18 +665,21 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
                     ))}
                   </div>
                 )}
-              </div>
+              </Field>
             </form>
           )}
         </SimpleKitModalBody>
+
         {!success && (
           <SimpleKitModalFooter>
             <Button
-              onClick={handleSubmit(onSubmit)}
-              className="w-full"
+              type="submit"
+              form="resource-form"
+              className="w-full gap-2 rounded-full"
               disabled={submitting}
             >
-              {submitting ? "Submitting..." : "Submit Resource"}
+              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+              {submitting ? "Submitting..." : "Submit resource"}
             </Button>
           </SimpleKitModalFooter>
         )}

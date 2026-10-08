@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+
+const plusJakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-plus-jakarta",
+  display: "swap",
+});
 import ClientBody from "./ClientBody";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Header } from "@/components/header";
@@ -124,7 +131,7 @@ export default function RootLayout({
           crossOrigin="anonymous"
         />
       </head>
-      <body className={`${workSans.variable} antialiased font-sans`}>
+      <body className={`${workSans.variable} ${plusJakarta.variable} antialiased font-sans`}>
         <ThemeProvider>
           <ClientBody>
             <Header />

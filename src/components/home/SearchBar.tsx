@@ -11,28 +11,33 @@ interface SearchBarProps {
   searchInputRef: RefObject<HTMLInputElement>;
 }
 
-export function SearchBar({ searchQuery, onSearchChange, searchInputRef }: SearchBarProps) {
+export function SearchBar({
+  searchQuery,
+  onSearchChange,
+  searchInputRef,
+}: SearchBarProps) {
   return (
     <motion.div
       className="max-w-2xl mx-auto"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.3 }}
+      initial={{ opacity: 0, transform: "translateY(14px)" }}
+      animate={{ opacity: 1, transform: "translateY(0px)" }}
+      transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1], delay: 0.15 }}
     >
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           ref={searchInputRef}
           type="text"
-          placeholder="Search resources... (Press / to focus)"
+          placeholder="Search icons, databases, courses..."
+          aria-label="Search resources"
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="pl-10 pr-10 h-12"
+          className="h-12 rounded-xl pl-11 pr-11 text-base"
         />
-        {searchQuery && (
+        {searchQuery ? (
           <motion.button
             onClick={() => onSearchChange("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+            className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
             aria-label="Clear search"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -42,6 +47,10 @@ export function SearchBar({ searchQuery, onSearchChange, searchInputRef }: Searc
           >
             <X className="h-4 w-4" />
           </motion.button>
+        ) : (
+          <kbd className="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded border bg-muted px-1.5 text-xs font-medium text-muted-foreground sm:block">
+            /
+          </kbd>
         )}
       </div>
     </motion.div>

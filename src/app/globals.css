@@ -12,6 +12,11 @@
 
 @layer base {
   :root {
+    /* Animation easing tokens */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+    --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
     --background: 40 20% 97%;
     --foreground: 240 8% 15%;
     --card: 0 0% 100%;
@@ -32,6 +37,10 @@
     --input: 240 6% 88%;
     --ring: 240 6% 25%;
     --radius: 0.5rem;
+        --gradient-border: linear-gradient(315deg, #404040 38%, #a3a3a3 52%, #525252 81%);
+    --gradient-border-width: 1.5px;
+  
+    --smooth-ring-color: color-mix(in srgb, #d4d4d4 30%, transparent); 
   }
 
   .dark {
@@ -74,6 +83,15 @@
   ::-moz-selection {
     @apply bg-primary text-primary-foreground;
   }
+
+      .smooth-shadow-ring {
+        box-shadow: 0 17.54px 23.39px 
+color-mix(in srgb, var(--smooth-shadow-color) 4%, transparent), 0 9.4px 12.5px 
+color-mix(in srgb, var(--smooth-shadow-color) 3%, transparent), 0 5.25px 7px 
+color-mix(in srgb, var(--smooth-shadow-color) 2%, transparent), 0 2.79px 3.72px -2px 
+color-mix(in srgb, var(--smooth-shadow-color) 1%, transparent), 0 1.16px 1.5px 
+color-mix(in srgb, var(--smooth-shadow-color) 1%, transparent), 0 0 0 var(--smooth-ring-width, 1px) var(--smooth-ring-color);
+    }
 }
 
 * {
@@ -113,4 +131,31 @@
   animation: imgLoading 2.5s linear infinite;
   will-change: clip-path, opacity;
   transform-origin: 0 100%;
+}
+
+
+.fix {
+  margin: 0;
+  padding: 0;
+}
+
+/* Button press feedback — physical feel on all pressable elements */
+@media (hover: hover) and (pointer: fine) {
+  button:active,
+  [role="button"]:active,
+  a:active {
+    transform: scale(0.97);
+    transition: transform 160ms var(--ease-out);
+  }
+}
+
+/* Reduced motion: keep opacity transitions, remove position/transform motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

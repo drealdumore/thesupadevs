@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { Resource } from "@/lib/types/database";
+import type { Resource, Category } from "@/lib/types/database";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,55 +18,28 @@ import {
   Check,
   X,
   Trash2,
-  ExternalLink,
-  LogOut,
   Search,
-  Calendar,
-  Tag,
-  Image as ImageIcon,
-  Edit,
   Plus,
-  Settings,
   BarChart3,
-  ArrowUpDown,
-  Filter,
-  MoreHorizontal,
-  Eye,
   RefreshCw,
   Download,
-  Upload,
-  Copy,
-  Archive,
-  Star,
-  WandSparkles,
   Clock,
+  Image as ImageIcon,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-  DropdownMenuCheckboxItem,
-} from "@/components/ui/dropdown-menu";
-import {
   SimpleKitModal,
-  SimpleKitModalTrigger,
   SimpleKitModalContent,
   SimpleKitModalHeader,
   SimpleKitModalTitle,
   SimpleKitModalBody,
   SimpleKitModalFooter,
-  SimpleKitModalClose,
 } from "@/components/ui/simple-kit-modal";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { Category } from "@/lib/types/database";
 
-// Import new components
 import { LoadingScreen } from "@/components/admin/LoadingScreen";
 import { LoginForm } from "@/components/admin/LoginForm";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -87,31 +60,35 @@ type SubcategoryData = {
   created_at: string;
 };
 
-// Enhanced Image Preview Component for Edit Modal
+type Suggestion = {
+  id: string;
+  currentCategory: string;
+  suggestedCategory: string;
+  confidence: string;
+};
+
+// Image preview for the edit modal
 function EditImagePreview({ imageUrl }: { imageUrl: string }) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
 
-  // Reset states when URL changes
   useEffect(() => {
     setImageLoaded(false);
     setImageError(false);
   }, [imageUrl]);
 
   return (
-    <div className="mt-2 p-2 border rounded-lg">
-      <p className="text-xs text-muted-foreground mb-2">Preview Image:</p>
+    <div className="mt-2 rounded-lg border p-2">
+      <p className="mb-2 text-xs text-muted-foreground">Preview image</p>
       {imageUrl && !imageError ? (
-        <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted rounded">
-          {/* Loading skeleton */}
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded bg-muted">
           {!imageLoaded && (
-            <div className="absolute inset-0 bg-muted animate-pulse" />
+            <div className="absolute inset-0 animate-pulse bg-muted" />
           )}
-
           <img
             src={imageUrl}
             alt="Resource preview"
-            className={`h-full w-full object-cover transition-all duration-300 ${
+            className={`h-full w-full object-cover transition-opacity duration-300 ${
               imageLoaded ? "opacity-100" : "opacity-0"
             }`}
             loading="lazy"
@@ -122,28 +99,10 @@ function EditImagePreview({ imageUrl }: { imageUrl: string }) {
               setImageLoaded(false);
             }}
           />
-
-          {imageLoaded && (
-            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
-          )}
         </div>
       ) : (
-        <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted/30 rounded flex items-center justify-center">
-          <div className="text-muted-foreground/50">
-            <svg
-              className="h-8 w-8"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z"
-              />
-            </svg>
-          </div>
+        <div className="flex aspect-[16/9] w-full items-center justify-center rounded bg-muted/30 text-muted-foreground/50">
+          <ImageIcon className="h-8 w-8" strokeWidth={1.5} />
         </div>
       )}
     </div>
@@ -156,6 +115,7 @@ type SortOrder = "asc" | "desc";
 export default function AdminPage() {
   // Core state
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [resourcesLoading, setResourcesLoading] = useState(true);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -168,7 +128,7 @@ export default function AdminPage() {
   const [categories, setCategories] = useState<CategoryData[]>([]);
   const [subcategories, setSubcategories] = useState<SubcategoryData[]>([]);
 
-  // Filtering & Search
+  // Filtering & search
   const [filter, setFilter] = useState<
     "all" | "pending" | "approved" | "broken"
   >("all");
@@ -181,13 +141,13 @@ export default function AdminPage() {
   const [brokenUrls, setBrokenUrls] = useState<Set<string>>(new Set());
   const [checkingUrls, setCheckingUrls] = useState(false);
 
-  // Selection & Bulk Operations
+  // Selection & bulk operations
   const [selectedResources, setSelectedResources] = useState<Set<string>>(
     new Set()
   );
   const [bulkOperating, setBulkOperating] = useState(false);
 
-  // Modals & Dialogs
+  // Modals & dialogs
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
@@ -199,7 +159,7 @@ export default function AdminPage() {
     count?: number;
   } | null>(null);
 
-  // Edit Resource Form
+  // Edit resource form
   const [editForm, setEditForm] = useState({
     name: "",
     description: "",
@@ -209,8 +169,9 @@ export default function AdminPage() {
     tags: [] as string[],
     image_url: "",
   });
+  const [editTagInput, setEditTagInput] = useState("");
 
-  // Category Management
+  // Category management
   const [newCategory, setNewCategory] = useState("");
   const [newSubcategory, setNewSubcategory] = useState("");
   const [selectedCategoryForSub, setSelectedCategoryForSub] =
@@ -222,42 +183,37 @@ export default function AdminPage() {
     null
   );
 
-  // AI Categorization
+  // AI categorization
   const [showBulkCategorize, setShowBulkCategorize] = useState(false);
   const [categorizing, setCategorizing] = useState(false);
-  const [categorySuggestions, setCategorySuggestions] = useState<
-    Array<{
-      id: string;
-      currentCategory: string;
-      suggestedCategory: string;
-      confidence: string;
-    }>
-  >([]);
+  const [categorySuggestions, setCategorySuggestions] = useState<Suggestion[]>(
+    []
+  );
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(
     new Set()
   );
-  const [currentBatch, setCurrentBatch] = useState(() => {
-    if (typeof window !== "undefined") {
-      return parseInt(localStorage.getItem("ai-batch-current") || "0");
-    }
-    return 0;
-  });
-  const [totalBatches, setTotalBatches] = useState(() => {
-    if (typeof window !== "undefined") {
-      return parseInt(localStorage.getItem("ai-batch-total") || "0");
-    }
-    return 0;
-  });
+  const [currentBatch, setCurrentBatch] = useState(0);
+  const [totalBatches, setTotalBatches] = useState(0);
   const [batchSize] = useState(50);
 
   useEffect(() => {
     checkAuth();
   }, []);
 
+  // Restore batch progress on the client only (avoids a hydration mismatch)
+  useEffect(() => {
+    setCurrentBatch(
+      parseInt(localStorage.getItem("ai-batch-current") || "0", 10) || 0
+    );
+    setTotalBatches(
+      parseInt(localStorage.getItem("ai-batch-total") || "0", 10) || 0
+    );
+  }, []);
+
   const fetchResources = useCallback(async () => {
     try {
       setResourcesLoading(true);
-      setLoadingStage("Loading Resources");
+      setLoadingStage("Loading resources");
       setLoadingProgress(40);
       const supabase = createClient();
       const { data, error } = await supabase
@@ -270,6 +226,7 @@ export default function AdminPage() {
       setLoadingProgress(90);
     } catch (error) {
       console.error("Error fetching resources:", error);
+      toast.error("Couldn't load resources");
     } finally {
       setResourcesLoading(false);
     }
@@ -278,7 +235,7 @@ export default function AdminPage() {
   const fetchCategories = useCallback(async () => {
     try {
       setCategoriesLoading(true);
-      setLoadingStage("Loading Categories");
+      setLoadingStage("Loading categories");
       setLoadingProgress(85);
       const supabase = createClient();
       const [categoriesRes, subcategoriesRes] = await Promise.all([
@@ -289,72 +246,86 @@ export default function AdminPage() {
       if (categoriesRes.error) throw categoriesRes.error;
       if (subcategoriesRes.error) throw subcategoriesRes.error;
 
-      setCategories(categoriesRes.data || []);
+      const cats = categoriesRes.data || [];
+      setCategories(cats);
       setSubcategories(subcategoriesRes.data || []);
-      if (categoriesRes.data?.[0]) {
-        setSelectedCategoryForSub(categoriesRes.data[0].id);
-      }
+      // Keep the current pick; only fall back to the first category when the
+      // pick is empty or was deleted
+      setSelectedCategoryForSub((prev) =>
+        prev && cats.some((c) => c.id === prev) ? prev : cats[0]?.id ?? ""
+      );
       setLoadingProgress(95);
     } catch (error) {
       console.error("Error fetching categories:", error);
+      toast.error("Couldn't load categories");
     } finally {
       setCategoriesLoading(false);
     }
   }, []);
 
-  // Enhanced filtering and sorting
-  const filteredAndSortedResources = allResources
-    .filter((resource) => {
-      const matchesStatus =
-        filter === "all" ||
-        (filter === "broken"
-          ? brokenUrls.has(resource.id)
-          : resource.status === filter);
-      const matchesSearch =
-        searchQuery === "" ||
-        resource.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        resource.description
-          .toLowerCase()
-          .includes(searchQuery.toLowerCase()) ||
-        resource.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        resource.tags.some((tag) =>
-          tag.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-      const matchesCategory =
-        selectedCategory === "all" || resource.category === selectedCategory;
+  const filteredAndSortedResources = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    return allResources
+      .filter((resource) => {
+        const matchesStatus =
+          filter === "all" ||
+          (filter === "broken"
+            ? brokenUrls.has(resource.id)
+            : resource.status === filter);
+        const matchesSearch =
+          q === "" ||
+          resource.name.toLowerCase().includes(q) ||
+          resource.description.toLowerCase().includes(q) ||
+          resource.url.toLowerCase().includes(q) ||
+          resource.tags.some((tag) => tag.toLowerCase().includes(q));
+        const matchesCategory =
+          selectedCategory === "all" || resource.category === selectedCategory;
 
-      return matchesStatus && matchesSearch && matchesCategory;
-    })
-    .sort((a, b) => {
-      let aVal: string | number | Date = a[sortField];
-      let bVal: string | number | Date = b[sortField];
+        return matchesStatus && matchesSearch && matchesCategory;
+      })
+      .sort((a, b) => {
+        let aVal: string | number = a[sortField];
+        let bVal: string | number = b[sortField];
 
-      if (sortField === "created_at") {
-        aVal = new Date(aVal).getTime();
-        bVal = new Date(bVal).getTime();
-      }
+        if (sortField === "created_at") {
+          aVal = new Date(aVal).getTime();
+          bVal = new Date(bVal).getTime();
+        }
+        if (typeof aVal === "string" && typeof bVal === "string") {
+          aVal = aVal.toLowerCase();
+          bVal = bVal.toLowerCase();
+        }
 
-      if (typeof aVal === "string" && typeof bVal === "string") {
-        aVal = aVal.toLowerCase();
-        bVal = bVal.toLowerCase();
-      }
-
-      if (sortOrder === "asc") {
-        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
-      } else {
+        if (sortOrder === "asc") return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
         return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
-      }
+      });
+  }, [
+    allResources,
+    filter,
+    searchQuery,
+    selectedCategory,
+    sortField,
+    sortOrder,
+    brokenUrls,
+  ]);
+
+  // Never let hidden rows stay selected: otherwise "select all", then a new
+  // filter, then "delete" would remove resources you can't see
+  useEffect(() => {
+    setSelectedResources((prev) => {
+      if (prev.size === 0) return prev;
+      const visible = new Set(filteredAndSortedResources.map((r) => r.id));
+      const next = new Set([...prev].filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
     });
+  }, [filteredAndSortedResources]);
 
-  // Get counts for filter buttons
-  const getCounts = () => {
-    const pending = allResources.filter((r) => r.status === "pending").length;
-    const approved = allResources.filter((r) => r.status === "approved").length;
-    const broken = brokenUrls.size;
-    return { all: allResources.length, pending, approved, broken };
+  const counts = {
+    all: allResources.length,
+    pending: allResources.filter((r) => r.status === "pending").length,
+    approved: allResources.filter((r) => r.status === "approved").length,
+    broken: brokenUrls.size,
   };
-
-  const counts = getCounts();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -369,12 +340,12 @@ export default function AdminPage() {
     if (!isLoading && isAuthenticated) {
       setLoadingStage("Ready");
       setLoadingProgress(100);
+      setHasLoaded(true);
     }
   }, [resourcesLoading, categoriesLoading, isAuthenticated]);
 
-  const getSubcategoriesForCategory = (categoryId: string) => {
-    return subcategories.filter((sub) => sub.category_id === categoryId);
-  };
+  const getSubcategoriesForCategory = (categoryId: string) =>
+    subcategories.filter((sub) => sub.category_id === categoryId);
 
   async function addCategory(name: string) {
     setAddingCategory(true);
@@ -382,23 +353,31 @@ export default function AdminPage() {
       const supabase = createClient();
       const { error } = await supabase.from("categories").insert({ name });
       if (error) throw error;
-      fetchCategories();
+      await fetchCategories();
     } catch (error) {
       console.error("Error adding category:", error);
+      toast.error("Couldn't add category");
     } finally {
       setAddingCategory(false);
     }
   }
 
   async function deleteCategory(id: string) {
+    if (
+      !window.confirm(
+        "Delete this category? Its subcategories may be removed too."
+      )
+    )
+      return;
     setDeletingCategory(id);
     try {
       const supabase = createClient();
       const { error } = await supabase.from("categories").delete().eq("id", id);
       if (error) throw error;
-      fetchCategories();
+      await fetchCategories();
     } catch (error) {
       console.error("Error deleting category:", error);
+      toast.error("Couldn't delete category");
     } finally {
       setDeletingCategory(null);
     }
@@ -412,15 +391,17 @@ export default function AdminPage() {
         .from("subcategories")
         .insert({ name, category_id: categoryId });
       if (error) throw error;
-      fetchCategories();
+      await fetchCategories();
     } catch (error) {
       console.error("Error adding subcategory:", error);
+      toast.error("Couldn't add subcategory");
     } finally {
       setAddingSubcategory(false);
     }
   }
 
   async function deleteSubcategory(id: string) {
+    if (!window.confirm("Delete this subcategory?")) return;
     setDeletingSubcategory(id);
     try {
       const supabase = createClient();
@@ -429,9 +410,10 @@ export default function AdminPage() {
         .delete()
         .eq("id", id);
       if (error) throw error;
-      fetchCategories();
+      await fetchCategories();
     } catch (error) {
       console.error("Error deleting subcategory:", error);
+      toast.error("Couldn't delete subcategory");
     } finally {
       setDeletingSubcategory(null);
     }
@@ -440,13 +422,15 @@ export default function AdminPage() {
   async function checkAuth() {
     setLoadingStage("Authenticating");
     setLoadingProgress(10);
-    const supabase = createClient();
-    const { data } = await supabase.auth.getSession();
-    setIsAuthenticated(!!data.session);
-    if (!data.session) {
+    try {
+      const supabase = createClient();
+      const { data } = await supabase.auth.getSession();
+      setIsAuthenticated(!!data.session);
+      if (!data.session) setLoading(false);
+      else setLoadingProgress(25);
+    } catch (error) {
+      console.error("Auth check failed:", error);
       setLoading(false);
-    } else {
-      setLoadingProgress(25);
     }
   }
 
@@ -463,7 +447,9 @@ export default function AdminPage() {
       setIsAuthenticated(true);
     } catch (error) {
       console.error("Login error:", error);
-      alert("Login failed. Please check your credentials.");
+      toast.error("Login failed", {
+        description: "Check your email and password.",
+      });
     } finally {
       setLoggingIn(false);
     }
@@ -485,11 +471,11 @@ export default function AdminPage() {
         .from("resources")
         .update({ status })
         .eq("id", id);
-
       if (error) throw error;
-      fetchResources();
+      await fetchResources();
     } catch (error) {
       console.error("Error updating resource:", error);
+      toast.error("Couldn't update status");
     }
   }
 
@@ -497,12 +483,18 @@ export default function AdminPage() {
     try {
       const supabase = createClient();
       const { error } = await supabase.from("resources").delete().eq("id", id);
-
       if (error) throw error;
-      fetchResources();
+      setSelectedResources((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       setDeleteConfirm(null);
+      await fetchResources();
+      toast.success("Resource deleted");
     } catch (error) {
       console.error("Error deleting resource:", error);
+      toast.error("Couldn't delete resource");
     }
   }
 
@@ -510,19 +502,24 @@ export default function AdminPage() {
     setDeleteConfirm({ type: "single", resource });
   }
 
-  async function updateResource(id: string, updates: Partial<Resource>) {
+  async function updateResource(
+    id: string,
+    updates: Partial<Resource>
+  ): Promise<boolean> {
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from("resources")
         .update(updates)
         .eq("id", id);
-
       if (error) throw error;
-      fetchResources();
+      await fetchResources();
       setEditingResource(null);
+      return true;
     } catch (error) {
       console.error("Error updating resource:", error);
+      toast.error("Couldn't save changes");
+      return false;
     }
   }
 
@@ -542,29 +539,25 @@ export default function AdminPage() {
           .from("resources")
           .delete()
           .in("id", resourceIds);
-        if (error) {
-          console.error("Delete error:", error);
-          throw error;
-        }
+        if (error) throw error;
       } else {
-        // Convert 'approve' to 'approved' for database
         const status = operation === "approve" ? "approved" : operation;
         const { error } = await supabase
           .from("resources")
           .update({ status })
           .in("id", resourceIds);
-        if (error) {
-          console.error("Update error:", error);
-          throw error;
-        }
+        if (error) throw error;
       }
 
       setSelectedResources(new Set());
-      fetchResources();
       setDeleteConfirm(null);
+      await fetchResources();
+      toast.success(`Updated ${resourceIds.length} resources`);
     } catch (error) {
       console.error("Bulk operation error:", error);
-      alert(`Failed to ${operation} resources. Please check your permissions.`);
+      toast.error(`Couldn't ${operation} those resources`, {
+        description: "Check your permissions and try again.",
+      });
     } finally {
       setBulkOperating(false);
     }
@@ -576,7 +569,6 @@ export default function AdminPage() {
 
   async function handleConfirmedDelete() {
     if (!deleteConfirm) return;
-
     if (deleteConfirm.type === "single" && deleteConfirm.resource) {
       await deleteResource(deleteConfirm.resource.id);
     } else if (deleteConfirm.type === "bulk") {
@@ -584,29 +576,27 @@ export default function AdminPage() {
     }
   }
 
-  // Resource selection
   function toggleResourceSelection(id: string) {
-    const newSelection = new Set(selectedResources);
-    if (newSelection.has(id)) {
-      newSelection.delete(id);
-    } else {
-      newSelection.add(id);
-    }
-    setSelectedResources(newSelection);
+    setSelectedResources((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   function selectAllVisible() {
-    const visibleIds = filteredAndSortedResources.map((r) => r.id);
-    setSelectedResources(new Set(visibleIds));
+    setSelectedResources(new Set(filteredAndSortedResources.map((r) => r.id)));
   }
 
   function clearSelection() {
     setSelectedResources(new Set());
   }
 
-  // Edit resource functions
+  // Edit resource
   function openEditModal(resource: Resource) {
     setEditingResource(resource);
+    setEditTagInput("");
     setEditForm({
       name: resource.name,
       description: resource.description,
@@ -618,12 +608,32 @@ export default function AdminPage() {
     });
   }
 
+  const editValid =
+    editForm.name.trim().length >= 2 &&
+    editForm.description.trim().length >= 10 &&
+    /^https?:\/\/\S+\.\S+/.test(editForm.url.trim()) &&
+    !!editForm.category;
+
   function handleEditSubmit() {
-    if (!editingResource) return;
-    updateResource(editingResource.id, editForm);
+    if (!editingResource || !editValid) return;
+    updateResource(editingResource.id, {
+      name: editForm.name.trim(),
+      description: editForm.description.trim(),
+      url: editForm.url.trim(),
+      category: editForm.category,
+      subcategory: editForm.subcategory || null,
+      tags: editForm.tags,
+      image_url: editForm.image_url.trim() || null,
+    }).then((ok) => ok && toast.success("Changes saved"));
   }
 
-  // Re-scrape image
+  function addEditTag() {
+    const tag = editTagInput.trim().replace(/,$/, "");
+    if (!tag || editForm.tags.includes(tag)) return;
+    setEditForm((prev) => ({ ...prev, tags: [...prev.tags, tag] }));
+    setEditTagInput("");
+  }
+
   async function rescrapeImage(resource: Resource) {
     try {
       const response = await fetch(
@@ -633,66 +643,51 @@ export default function AdminPage() {
 
       if (data.success && data.metadata.image) {
         await updateResource(resource.id, { image_url: data.metadata.image });
+        toast.success("Image updated");
+      } else {
+        toast.error("No image found for that site");
       }
     } catch (error) {
       console.error("Error re-scraping image:", error);
+      toast.error("Couldn't fetch the image");
     }
   }
 
-  // Check for broken URLs
+  // Check for broken URLs, a few at a time
   async function checkBrokenUrls() {
     setCheckingUrls(true);
     const broken = new Set<string>();
-    const controller = new AbortController();
-    const batchSize = 5; // Check 5 URLs concurrently
+    const concurrency = 5;
 
-    for (let i = 0; i < allResources.length; i += batchSize) {
-      if (controller.signal.aborted) break;
-      const batch = allResources.slice(i, i + batchSize);
+    for (let i = 0; i < allResources.length; i += concurrency) {
+      const chunk = allResources.slice(i, i + concurrency);
 
       await Promise.all(
-        batch.map(async (resource) => {
+        chunk.map(async (resource) => {
           try {
             const response = await fetch(
-              `/api/scrape-metadata?url=${encodeURIComponent(resource.url)}`,
-              { signal: controller.signal }
+              `/api/scrape-metadata?url=${encodeURIComponent(resource.url)}`
             );
             const data = await response.json();
-
-            if (!data.success) {
-              broken.add(resource.id);
-            }
-          } catch (error) {
-            if (error instanceof Error && error.name !== "AbortError") {
-              broken.add(resource.id);
-            }
+            if (!data.success) broken.add(resource.id);
+          } catch {
+            broken.add(resource.id);
           }
         })
       );
 
-      // Update progress incrementally
-      setBrokenUrls(new Set(broken));
+      setBrokenUrls(new Set(broken)); // incremental progress
     }
 
     setCheckingUrls(false);
+    toast.success(`Link check done: ${broken.size} broken`);
   }
 
-  // AI Categorization
-  async function startBatchCategorization() {
-    const total = Math.ceil(allResources.length / batchSize);
-    setCurrentBatch(0);
-    setTotalBatches(total);
-    localStorage.setItem("ai-batch-current", "0");
-    localStorage.setItem("ai-batch-total", total.toString());
-    setCategorySuggestions([]);
-    setSelectedSuggestions(new Set());
-    processNextBatch();
-  }
-
-  async function processNextBatch() {
+  // AI categorization. The batch index is passed in rather than read from
+  // state, because state is stale inside the callbacks that start the next batch
+  async function processBatch(batchIndex: number) {
     setCategorizing(true);
-    const batchNum = currentBatch + 1;
-    const offset = currentBatch * batchSize;
+    const offset = batchIndex * batchSize;
     const batch = allResources.slice(offset, offset + batchSize);
 
     if (batch.length === 0) {
@@ -701,48 +696,50 @@ export default function AdminPage() {
     }
 
     try {
-      const startTime = Date.now();
-
       const response = await fetch("/api/categorize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           resources: batch,
-          categories: categories,
-          subcategories: subcategories,
+          categories,
+          subcategories,
           offset,
           limit: batchSize,
         }),
       });
+      if (!response.ok) throw new Error(`Request failed: ${response.status}`);
 
       const data = await response.json();
       if (data.suggestions) {
-        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        const changes = data.suggestions.filter(
-          (s: { suggestedCategory: string; currentCategory: string }) =>
-            s.suggestedCategory !== s.currentCategory
-        ).length;
-
-        setCategorySuggestions(data.suggestions);
+        const suggestions = data.suggestions as Suggestion[];
+        setCategorySuggestions(suggestions);
         setSelectedSuggestions(
           new Set(
-            data.suggestions
-              .filter(
-                (s: {
-                  suggestedCategory: string;
-                  currentCategory: string;
-                  id: string;
-                }) => s.suggestedCategory !== s.currentCategory
-              )
-              .map((s: { id: string }) => s.id)
+            suggestions
+              .filter((s) => s.suggestedCategory !== s.currentCategory)
+              .map((s) => s.id)
           )
         );
       }
     } catch (error) {
-      console.error("❌ Error categorizing batch:", error);
+      console.error("Error categorizing batch:", error);
+      toast.error("Categorization failed", {
+        description: "Try this batch again.",
+      });
     } finally {
       setCategorizing(false);
     }
+  }
+
+  function startBatchCategorization() {
+    const total = Math.ceil(allResources.length / batchSize);
+    setCurrentBatch(0);
+    setTotalBatches(total);
+    localStorage.setItem("ai-batch-current", "0");
+    localStorage.setItem("ai-batch-total", total.toString());
+    setCategorySuggestions([]);
+    setSelectedSuggestions(new Set());
+    processBatch(0);
   }
 
   function proceedToNextBatch() {
@@ -751,59 +748,69 @@ export default function AdminPage() {
     localStorage.setItem("ai-batch-current", nextBatch.toString());
     setCategorySuggestions([]);
     setSelectedSuggestions(new Set());
-    setTimeout(processNextBatch, 100);
+    processBatch(nextBatch);
   }
 
-  async function applyCategorySuggestions(
-    suggestions: typeof categorySuggestions
-  ) {
+  async function applyCategorySuggestions(suggestions: Suggestion[]) {
+    const changes = suggestions.filter(
+      (s) => s.suggestedCategory !== s.currentCategory
+    );
+
     try {
       const supabase = createClient();
-
-      for (const suggestion of suggestions) {
-        if (suggestion.suggestedCategory !== suggestion.currentCategory) {
-          await supabase
+      // The old subcategory belongs to the old category, so it is cleared too
+      const results = await Promise.all(
+        changes.map((s) =>
+          supabase
             .from("resources")
-            .update({ category: suggestion.suggestedCategory })
-            .eq("id", suggestion.id);
-        }
+            .update({ category: s.suggestedCategory, subcategory: null })
+            .eq("id", s.id)
+        )
+      );
+      const failed = results.filter((r) => r.error).length;
+
+      await fetchResources();
+
+      if (failed > 0) {
+        toast.error(`${failed} of ${changes.length} updates failed`);
+        return; // stay on this batch so nothing is skipped
       }
+      toast.success(`Recategorized ${changes.length} resources`);
 
-      fetchResources();
-
-      // Check if there are more batches
       if (currentBatch + 1 < totalBatches) {
         proceedToNextBatch();
       } else {
-        // All batches complete
         setShowBulkCategorize(false);
         setCategorySuggestions([]);
         setSelectedSuggestions(new Set());
         setCurrentBatch(0);
         setTotalBatches(0);
+        localStorage.removeItem("ai-batch-current");
+        localStorage.removeItem("ai-batch-total");
       }
     } catch (error) {
       console.error("Error applying suggestions:", error);
+      toast.error("Couldn't apply suggestions");
     }
   }
 
   function toggleSuggestionSelection(id: string) {
-    const newSelection = new Set(selectedSuggestions);
-    if (newSelection.has(id)) {
-      newSelection.delete(id);
-    } else {
-      newSelection.add(id);
-    }
-    setSelectedSuggestions(newSelection);
+    setSelectedSuggestions((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   function applySelectedSuggestions() {
-    const selectedSuggestionsList = categorySuggestions.filter(
-      (s) =>
-        selectedSuggestions.has(s.id) &&
-        s.suggestedCategory !== s.currentCategory
+    applyCategorySuggestions(
+      categorySuggestions.filter(
+        (s) =>
+          selectedSuggestions.has(s.id) &&
+          s.suggestedCategory !== s.currentCategory
+      )
     );
-    applyCategorySuggestions(selectedSuggestionsList);
   }
 
   function resetBatchState() {
@@ -816,7 +823,8 @@ export default function AdminPage() {
     localStorage.removeItem("ai-batch-total");
   }
 
-  if (loading) {
+  // Only the first load takes over the screen; later refreshes keep the page
+  if (loading && !hasLoaded) {
     return (
       <LoadingScreen
         loadingStage={loadingStage}
@@ -838,8 +846,13 @@ export default function AdminPage() {
     );
   }
 
+  const editCategoryData = categories.find((c) => c.name === editForm.category);
+  const editSubcategories = editCategoryData
+    ? getSubcategoriesForCategory(editCategoryData.id)
+    : [];
+
   return (
-    <div className="container py-8 max-w-7xl overflow-x-hidden">
+    <div className="container max-w-7xl overflow-x-hidden py-8">
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -886,61 +899,25 @@ export default function AdminPage() {
         />
       </motion.div>
 
-      {/* Resources List */}
-      <motion.div
-        className="space-y-4"
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-      >
+      {/* Resources list */}
+      <div className="space-y-4">
         <AnimatePresence mode="wait">
           {filteredAndSortedResources.length === 0 ? (
             <motion.div
               key="no-results"
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: -20 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
             >
               <Card className="border-2 p-12 text-center">
-                <motion.div
-                  className="mx-auto w-16 h-16 bg-muted/30 rounded-full flex items-center justify-center mb-4"
-                  initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{
-                    duration: 0.8,
-                    delay: 0.3,
-                    type: "spring",
-                    stiffness: 200,
-                    damping: 15,
-                  }}
-                >
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted/30">
                   <Search className="h-6 w-6 text-muted-foreground" />
-                </motion.div>
-                <motion.p
-                  className="text-muted-foreground mb-2"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.6,
-                    delay: 0.5,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                >
-                  No resources found
-                </motion.p>
-                <motion.p
-                  className="text-sm text-muted-foreground"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{
-                    duration: 0.6,
-                    delay: 0.6,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                >
+                </div>
+                <p className="mb-2 text-muted-foreground">No resources found</p>
+                <p className="text-sm text-muted-foreground">
                   Try adjusting your search or filters
-                </motion.p>
+                </p>
               </Card>
             </motion.div>
           ) : (
@@ -949,23 +926,19 @@ export default function AdminPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.3 }}
               className="space-y-4"
             >
               {filteredAndSortedResources.map((resource, index) => (
                 <motion.div
                   key={resource.id}
-                  initial={{ opacity: 0, y: 30, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  // Delay is capped: an uncapped index * 0.05 made row 300 wait 15s
                   transition={{
-                    duration: 0.6,
-                    delay: index * 0.05,
+                    duration: 0.35,
+                    delay: Math.min(index, 12) * 0.03,
                     ease: [0.16, 1, 0.3, 1],
-                  }}
-                  whileHover={{
-                    scale: 1.02,
-                    y: -4,
-                    transition: { duration: 0.2, ease: "easeOut" },
                   }}
                 >
                   <ResourceCard
@@ -984,26 +957,27 @@ export default function AdminPage() {
             </motion.div>
           )}
         </AnimatePresence>
-      </motion.div>
+      </div>
 
-      {/* Edit Resource Modal */}
+      {/* Edit resource modal */}
       <SimpleKitModal
         open={!!editingResource}
-        onOpenChange={() => setEditingResource(null)}
+        onOpenChange={(o) => {
+          if (!o) setEditingResource(null);
+        }}
       >
         <SimpleKitModalContent>
           <SimpleKitModalHeader>
-            <SimpleKitModalTitle>Edit Resource</SimpleKitModalTitle>
-            <p className="text-sm text-muted-foreground text-center mt-2">
-              Update resource details and metadata. Changes will be saved
-              immediately.
+            <SimpleKitModalTitle>Edit resource</SimpleKitModalTitle>
+            <p className="mt-2 text-center text-sm text-muted-foreground">
+              Update the details. Changes are saved immediately.
             </p>
           </SimpleKitModalHeader>
 
           <SimpleKitModalBody>
             <div className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Resource Name *</Label>
+                <Label htmlFor="edit-name">Name *</Label>
                 <Input
                   id="edit-name"
                   placeholder="e.g., Framer Motion"
@@ -1022,10 +996,13 @@ export default function AdminPage() {
                     setEditForm((prev) => ({
                       ...prev,
                       category: value as Category,
+                      // A subcategory only belongs to its own category
+                      subcategory:
+                        value === prev.category ? prev.subcategory : "",
                     }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="edit-category">
                     <SelectValue placeholder="Select a category" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1038,46 +1015,34 @@ export default function AdminPage() {
                 </Select>
               </div>
 
-              {editForm.category &&
-                (() => {
-                  const categoryData = categories.find(
-                    (c) => c.name === editForm.category
-                  );
-                  const categorySubcategories = categoryData
-                    ? getSubcategoriesForCategory(categoryData.id)
-                    : [];
-                  return categorySubcategories.length > 0 ? (
-                    <div className="space-y-2">
-                      <Label htmlFor="edit-subcategory">Subcategory</Label>
-                      <Select
-                        value={editForm.subcategory}
-                        onValueChange={(value) =>
-                          setEditForm((prev) => ({
-                            ...prev,
-                            subcategory: value,
-                          }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a subcategory (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categorySubcategories.map((subcat) => (
-                            <SelectItem key={subcat.id} value={subcat.name}>
-                              {subcat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ) : null;
-                })()}
+              {editSubcategories.length > 0 && (
+                <div className="space-y-2">
+                  <Label htmlFor="edit-subcategory">Subcategory</Label>
+                  <Select
+                    value={editForm.subcategory}
+                    onValueChange={(value) =>
+                      setEditForm((prev) => ({ ...prev, subcategory: value }))
+                    }
+                  >
+                    <SelectTrigger id="edit-subcategory">
+                      <SelectValue placeholder="Optional" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {editSubcategories.map((subcat) => (
+                        <SelectItem key={subcat.id} value={subcat.name}>
+                          {subcat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="edit-description">Description *</Label>
                 <Textarea
                   id="edit-description"
-                  placeholder="Describe what this resource does and why it's useful..."
+                  placeholder="What does it do, and why is it useful?"
                   rows={4}
                   value={editForm.description}
                   onChange={(e) =>
@@ -1134,9 +1099,12 @@ export default function AdminPage() {
                             ...prev,
                             image_url: data.metadata.image,
                           }));
+                        } else {
+                          toast.error("No image found for that site");
                         }
                       } catch (error) {
                         console.error("Error fetching image:", error);
+                        toast.error("Couldn't fetch the image");
                       }
                     }}
                     disabled={!editForm.url}
@@ -1156,30 +1124,32 @@ export default function AdminPage() {
                 <div className="flex gap-2">
                   <Input
                     id="edit-tags"
-                    placeholder="Add tags separated by commas"
-                    value={editForm.tags.join(", ")}
-                    onChange={(e) =>
-                      setEditForm((prev) => ({
-                        ...prev,
-                        tags: e.target.value
-                          .split(",")
-                          .map((tag) => tag.trim())
-                          .filter(Boolean),
-                      }))
-                    }
+                    placeholder="Type a tag, then press Enter"
+                    value={editTagInput}
+                    onChange={(e) => setEditTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        addEditTag();
+                      }
+                    }}
                   />
+                  <Button type="button" variant="outline" onClick={addEditTag}>
+                    Add
+                  </Button>
                 </div>
                 {editForm.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {editForm.tags.map((tag, index) => (
-                      <Badge key={index} variant="secondary" className="gap-1">
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {editForm.tags.map((tag) => (
+                      <Badge key={tag} variant="secondary" className="gap-1">
                         {tag}
                         <button
                           type="button"
+                          aria-label={`Remove tag ${tag}`}
                           onClick={() =>
                             setEditForm((prev) => ({
                               ...prev,
-                              tags: prev.tags.filter((_, i) => i !== index),
+                              tags: prev.tags.filter((t) => t !== tag),
                             }))
                           }
                           className="ml-1 hover:text-destructive"
@@ -1195,21 +1165,27 @@ export default function AdminPage() {
           </SimpleKitModalBody>
 
           <SimpleKitModalFooter>
-            <Button onClick={handleEditSubmit} className="w-full">
-              Save Changes
+            <Button
+              onClick={handleEditSubmit}
+              disabled={!editValid}
+              className="w-full"
+            >
+              Save changes
             </Button>
           </SimpleKitModalFooter>
         </SimpleKitModalContent>
       </SimpleKitModal>
 
-      {/* Resource Details Modal */}
+      {/* Resource details modal */}
       <SimpleKitModal
         open={!!showResourceDetails}
-        onOpenChange={() => setShowResourceDetails(null)}
+        onOpenChange={(o) => {
+          if (!o) setShowResourceDetails(null);
+        }}
       >
         <SimpleKitModalContent>
           <SimpleKitModalHeader>
-            <SimpleKitModalTitle>Resource Details</SimpleKitModalTitle>
+            <SimpleKitModalTitle>Resource details</SimpleKitModalTitle>
           </SimpleKitModalHeader>
 
           <SimpleKitModalBody>
@@ -1220,14 +1196,14 @@ export default function AdminPage() {
                     <img
                       src={showResourceDetails.image_url}
                       alt={showResourceDetails.name}
-                      className="w-24 h-24 rounded-lg object-cover"
+                      className="h-24 w-24 rounded-lg object-cover"
                     />
                   )}
                   <div className="flex-1">
-                    <h3 className="font-semibold text-lg mb-2">
+                    <h3 className="mb-2 text-lg font-semibold">
                       {showResourceDetails.name}
                     </h3>
-                    <div className="flex gap-2 mb-2">
+                    <div className="mb-2 flex gap-2">
                       <Badge
                         variant={
                           showResourceDetails.status === "approved"
@@ -1254,7 +1230,7 @@ export default function AdminPage() {
                       href={showResourceDetails.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block text-blue-500 hover:underline truncate"
+                      className="block truncate text-primary hover:underline"
                     >
                       {showResourceDetails.url}
                     </a>
@@ -1262,9 +1238,7 @@ export default function AdminPage() {
                   <div>
                     <strong>Created:</strong>
                     <span className="block">
-                      {new Date(
-                        showResourceDetails.created_at
-                      ).toLocaleString()}
+                      {new Date(showResourceDetails.created_at).toLocaleString()}
                     </span>
                   </div>
                   {showResourceDetails.subcategory && (
@@ -1277,7 +1251,7 @@ export default function AdminPage() {
                   )}
                   <div>
                     <strong>Tags:</strong>
-                    <div className="flex flex-wrap gap-1 mt-1">
+                    <div className="mt-1 flex flex-wrap gap-1">
                       {showResourceDetails.tags.map((tag) => (
                         <Badge key={tag} variant="outline" className="text-xs">
                           {tag}
@@ -1292,16 +1266,16 @@ export default function AdminPage() {
         </SimpleKitModalContent>
       </SimpleKitModal>
 
-      {/* Category Manager Modal */}
+      {/* Category manager modal */}
       <SimpleKitModal
         open={showCategoryManager}
         onOpenChange={setShowCategoryManager}
       >
         <SimpleKitModalContent>
           <SimpleKitModalHeader>
-            <SimpleKitModalTitle>Category Management</SimpleKitModalTitle>
-            <p className="text-sm text-muted-foreground text-center mt-2">
-              Add, edit, or remove categories and subcategories
+            <SimpleKitModalTitle>Category management</SimpleKitModalTitle>
+            <p className="mt-2 text-center text-sm text-muted-foreground">
+              Add or remove categories and subcategories
             </p>
           </SimpleKitModalHeader>
 
@@ -1320,6 +1294,7 @@ export default function AdminPage() {
                     onChange={(e) => setNewCategory(e.target.value)}
                   />
                   <Button
+                    aria-label="Add category"
                     onClick={() => {
                       if (newCategory.trim()) {
                         addCategory(newCategory.trim());
@@ -1340,12 +1315,13 @@ export default function AdminPage() {
                   {categories.map((category) => (
                     <div
                       key={category.id}
-                      className="flex items-center justify-between p-2 border rounded"
+                      className="flex items-center justify-between rounded border p-2"
                     >
                       <span>{category.name}</span>
                       <Button
                         size="sm"
                         variant="ghost"
+                        aria-label={`Delete ${category.name}`}
                         onClick={() => deleteCategory(category.id)}
                         disabled={deletingCategory === category.id}
                       >
@@ -1385,6 +1361,7 @@ export default function AdminPage() {
                       onChange={(e) => setNewSubcategory(e.target.value)}
                     />
                     <Button
+                      aria-label="Add subcategory"
                       onClick={() => {
                         if (newSubcategory.trim() && selectedCategoryForSub) {
                           addSubcategory(
@@ -1410,12 +1387,13 @@ export default function AdminPage() {
                     (subcategory) => (
                       <div
                         key={subcategory.id}
-                        className="flex items-center justify-between p-2 border rounded"
+                        className="flex items-center justify-between rounded border p-2"
                       >
                         <span>{subcategory.name}</span>
                         <Button
                           size="sm"
                           variant="ghost"
+                          aria-label={`Delete ${subcategory.name}`}
                           onClick={() => deleteSubcategory(subcategory.id)}
                           disabled={deletingSubcategory === subcategory.id}
                         >
@@ -1435,28 +1413,28 @@ export default function AdminPage() {
         </SimpleKitModalContent>
       </SimpleKitModal>
 
-      {/* Analytics Modal */}
+      {/* Analytics modal */}
       <SimpleKitModal open={showAnalytics} onOpenChange={setShowAnalytics}>
         <SimpleKitModalContent>
           <SimpleKitModalHeader>
-            <SimpleKitModalTitle>Analytics Dashboard</SimpleKitModalTitle>
-            <p className="text-sm text-muted-foreground text-center mt-2">
+            <SimpleKitModalTitle>Analytics</SimpleKitModalTitle>
+            <p className="mt-2 text-center text-sm text-muted-foreground">
               Resource statistics and insights
             </p>
           </SimpleKitModalHeader>
 
           <SimpleKitModalBody>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <Card className="p-4">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="mb-2 flex items-center gap-2">
                   <BarChart3 className="h-4 w-4 text-blue-500" />
-                  <span className="font-medium">Total Resources</span>
+                  <span className="font-medium">Total</span>
                 </div>
                 <div className="text-2xl font-bold">{allResources.length}</div>
               </Card>
 
               <Card className="p-4">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="mb-2 flex items-center gap-2">
                   <Check className="h-4 w-4 text-green-500" />
                   <span className="font-medium">Approved</span>
                 </div>
@@ -1466,7 +1444,7 @@ export default function AdminPage() {
               </Card>
 
               <Card className="p-4">
-                <div className="flex items-center gap-2 mb-2">
+                <div className="mb-2 flex items-center gap-2">
                   <Clock className="h-4 w-4 text-yellow-500" />
                   <span className="font-medium">Pending</span>
                 </div>
@@ -1476,8 +1454,8 @@ export default function AdminPage() {
               </Card>
             </div>
 
-            <div className="space-y-4">
-              <h4 className="font-medium">Resources by Category</h4>
+            <div className="mt-6 space-y-4">
+              <h4 className="font-medium">Resources by category</h4>
               {categories.map((category) => {
                 const count = allResources.filter(
                   (r) => r.category === category.name
@@ -1495,9 +1473,9 @@ export default function AdminPage() {
                         {count} ({percentage.toFixed(1)}%)
                       </span>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2">
+                    <div className="h-2 w-full rounded-full bg-muted">
                       <div
-                        className="bg-primary h-2 rounded-full transition-all"
+                        className="h-2 rounded-full bg-primary transition-all"
                         style={{ width: `${percentage}%` }}
                       />
                     </div>
@@ -1526,61 +1504,61 @@ export default function AdminPage() {
         onResetBatchState={resetBatchState}
       />
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete confirmation modal */}
       <SimpleKitModal
         open={!!deleteConfirm}
-        onOpenChange={() => setDeleteConfirm(null)}
+        onOpenChange={(o) => {
+          if (!o) setDeleteConfirm(null);
+        }}
       >
         <SimpleKitModalContent>
           <SimpleKitModalHeader>
             <SimpleKitModalTitle className="text-destructive">
-              Confirm Delete
+              Confirm delete
             </SimpleKitModalTitle>
-            <p className="text-sm text-muted-foreground text-center mt-2">
+            <p className="mt-2 text-center text-sm text-muted-foreground">
               {deleteConfirm?.type === "single"
-                ? "This action cannot be undone. The resource will be permanently deleted."
-                : `This action cannot be undone. ${deleteConfirm?.count} resources will be permanently deleted.`}
+                ? "This can't be undone. The resource will be permanently deleted."
+                : `This can't be undone. ${deleteConfirm?.count} resources will be permanently deleted.`}
             </p>
           </SimpleKitModalHeader>
 
           <SimpleKitModalBody>
             {deleteConfirm?.type === "single" && deleteConfirm.resource && (
-              <div className="space-y-4">
-                <div className="p-4 border rounded-lg bg-muted/30">
-                  <h4 className="font-medium mb-2">
-                    {deleteConfirm.resource.name}
-                  </h4>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {deleteConfirm.resource.description}
-                  </p>
-                  <div className="flex gap-2">
-                    <Badge variant="outline">
-                      {deleteConfirm.resource.category}
-                    </Badge>
-                    <Badge
-                      variant={
-                        deleteConfirm.resource.status === "approved"
-                          ? "default"
-                          : "secondary"
-                      }
-                    >
-                      {deleteConfirm.resource.status}
-                    </Badge>
-                  </div>
+              <div className="rounded-lg border bg-muted/30 p-4">
+                <h4 className="mb-2 font-medium">
+                  {deleteConfirm.resource.name}
+                </h4>
+                <p className="mb-2 text-sm text-muted-foreground">
+                  {deleteConfirm.resource.description}
+                </p>
+                <div className="flex gap-2">
+                  <Badge variant="outline">
+                    {deleteConfirm.resource.category}
+                  </Badge>
+                  <Badge
+                    variant={
+                      deleteConfirm.resource.status === "approved"
+                        ? "default"
+                        : "secondary"
+                    }
+                  >
+                    {deleteConfirm.resource.status}
+                  </Badge>
                 </div>
               </div>
             )}
 
             {deleteConfirm?.type === "bulk" && (
-              <div className="text-center py-4">
-                <div className="w-16 h-16 mx-auto mb-4 bg-destructive/10 rounded-full flex items-center justify-center">
+              <div className="py-4 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
                   <Trash2 className="h-8 w-8 text-destructive" />
                 </div>
-                <p className="text-lg font-medium mb-2">
-                  Delete {deleteConfirm.count} Resources
+                <p className="mb-2 text-lg font-medium">
+                  Delete {deleteConfirm.count} resources
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  You are about to permanently delete {deleteConfirm.count}{" "}
+                  You&apos;re about to permanently delete {deleteConfirm.count}{" "}
                   selected resources.
                 </p>
               </div>
@@ -1588,7 +1566,7 @@ export default function AdminPage() {
           </SimpleKitModalBody>
 
           <SimpleKitModalFooter>
-            <div className="flex gap-2 w-full">
+            <div className="flex w-full gap-2">
               <Button
                 variant="outline"
                 onClick={() => setDeleteConfirm(null)}
@@ -1599,9 +1577,10 @@ export default function AdminPage() {
               <Button
                 variant="destructive"
                 onClick={handleConfirmedDelete}
+                disabled={bulkOperating}
                 className="flex-1"
               >
-                Delete {deleteConfirm?.type === "bulk" ? "All" : ""}
+                Delete{deleteConfirm?.type === "bulk" ? " all" : ""}
               </Button>
             </div>
           </SimpleKitModalFooter>

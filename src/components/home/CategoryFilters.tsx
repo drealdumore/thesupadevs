@@ -19,6 +19,14 @@ interface CategoryFiltersProps {
   categoryIcons: Record<string, React.ComponentType<{ className?: string }>>;
 }
 
+const ease = [0.23, 1, 0.32, 1] as const;
+
+const base =
+  "flex min-h-[40px] shrink-0 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors duration-200";
+const on = "border-foreground bg-foreground text-background";
+const off =
+  "border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted/50";
+
 export function CategoryFilters({
   categories,
   activeCategory,
@@ -28,65 +36,57 @@ export function CategoryFilters({
   categoryIcons,
 }: CategoryFiltersProps) {
   return (
-    <motion.div
-      className="space-y-6"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: 0.4 }}
-    >
-      <div className="flex flex-wrap md:justify-center gap-2 md:gap-3">
+    <div className="sticky top-0 z-20 -mx-4 border-b bg-background/90 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+      <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] md:flex-wrap [&::-webkit-scrollbar]:hidden">
+        {/* "All" pill */}
         <motion.button
+          type="button"
+          aria-pressed={activeCategory === "All"}
           onClick={() => onCategoryChange("All")}
-          className={`rounded-full border px-3 text-sm font-semibold tracking-wide transition-all duration-200 md:px-6 md:py-2 md:text-sm flex items-center gap-2 min-h-[44px] md:min-h-[36px] ${
-            activeCategory === "All"
-              ? "border-foreground bg-foreground text-background shadow-lg"
-              : "border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted/50 hover:shadow-md"
-          }`}
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.5 }}
-          whileHover={{ scale: 1.05, y: -2 }}
+          className={`${base} ${activeCategory === "All" ? on : off}`}
+          initial={{ opacity: 0, transform: "translateY(6px)" }}
+          animate={{ opacity: 1, transform: "translateY(0px)" }}
+          transition={{ duration: 0.3, ease, delay: 0 }}
           whileTap={{ scale: 0.95 }}
         >
           All
+          <span className="text-xs font-medium opacity-60">
+            {resources.length}
+          </span>
         </motion.button>
-        {categories.map((category, index) => {
+
+        {categories.map((category, i) => {
           const Icon = categoryIcons[category.name] || Code;
-          const count = resources.filter((r: { category: string }) => r.category === category.name).length;
+          const count = resources.filter(
+            (r) => r.category === category.name
+          ).length;
+          const isActive = activeCategory === category.name;
+
           return (
             <motion.button
               key={category.id}
+              type="button"
+              aria-pressed={isActive}
               onClick={() =>
                 activeCategory === "All"
                   ? onScrollToCategory(category.name)
                   : onCategoryChange(category.name)
               }
-              className={`rounded-full border px-3 text-sm font-semibold tracking-wide transition-all duration-200 md:px-6 md:py-2 md:text-sm flex items-center gap-2 min-h-[44px] md:min-h-[36px] relative ${
-                activeCategory === category.name
-                  ? "border-foreground bg-foreground text-background shadow-lg"
-                  : "border-border bg-card text-foreground hover:border-foreground/40 hover:bg-muted/50 hover:shadow-md"
-              }`}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, delay: 0.5 + (index + 1) * 0.05 }}
-              whileHover={{ scale: 1.05, y: -2 }}
+              className={`${base} ${isActive ? on : off}`}
+              initial={{ opacity: 0, transform: "translateY(6px)" }}
+              animate={{ opacity: 1, transform: "translateY(0px)" }}
+              transition={{ duration: 0.3, ease, delay: (i + 1) * 0.04 }}
               whileTap={{ scale: 0.95 }}
             >
-              <Icon className="h-4 w-4 md:h-3 md:w-3" />
+              <Icon className="h-4 w-4" />
               {category.name}
               {count > 0 && (
-                <span className={`ml-1 px-1.5 py-0.5 hidden md:block text-xs rounded-full ${
-                  activeCategory === category.name
-                    ? "bg-background/20 text-background"
-                    : "bg-primary/20 text-primary"
-                }`}>
-                  {count}
-                </span>
+                <span className="text-xs font-medium opacity-60">{count}</span>
               )}
             </motion.button>
           );
         })}
       </div>
-    </motion.div>
+    </div>
   );
 }

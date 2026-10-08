@@ -10,7 +10,7 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-work-sans)", "Inter", "system-ui", "sans-serif"],
+        sans: ["var(--font-plus-jakarta)", "system-ui", "sans-serif"],
         heading: ["var(--font-work-sans)", "Inter", "system-ui", "sans-serif"],
       },
 

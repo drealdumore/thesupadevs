@@ -156,11 +156,7 @@ export async function generateMetadata({
       title: baseTitle,
       description: baseDescription,
       type: "website",
-      url: subcategory
-        ? `https://thesupadevs.vercel.app/category/${slug}?subcategory=${encodeURIComponent(
-            subcategory
-          )}`
-        : `https://thesupadevs.vercel.app/category/${slug}`,
+      url: `https://thesupadevs.vercel.app/category/${slug}`,
       siteName: "TheSupaDevs",
       images: [{
         url: "/opengraph-image.png",
@@ -176,11 +172,7 @@ export async function generateMetadata({
       images: ["/opengraph-image.png"]
     },
     alternates: {
-      canonical: subcategory
-        ? `https://thesupadevs.vercel.app/category/${slug}?subcategory=${encodeURIComponent(
-            subcategory
-          )}`
-        : `https://thesupadevs.vercel.app/category/${slug}`,
+      canonical: `https://thesupadevs.vercel.app/category/${slug}`,
     },
     other: {
       "article:section": categoryData.name,

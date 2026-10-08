@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { ResourceCard } from "@/components/resource-card";
 import { AddResourceModal } from "@/components/add-resource-modal";
 import { useRef, useState, useEffect } from "react";
+import { slugify } from "@/lib/utils";
 
 // Import new components
 import { HeroSection } from "@/components/home/HeroSection";
@@ -322,9 +323,7 @@ export default function HomePageClient({
                         whileTap={{ scale: 0.98 }}
                       >
                         <Link
-                          href={`/category/${
-                            category.name
-                          }?subcategory=${encodeURIComponent(subcat.name)}`}
+                          href={`/category/${category.name}/${slugify(subcat.name)}`}
                           className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm"
                           title={resourcesInSubcat
                             .map((r) => r.name)
@@ -405,9 +404,7 @@ export default function HomePageClient({
                 ) : (
                   <Link
                     key={subcat.id}
-                    href={`/category/${activeCategory}?subcategory=${encodeURIComponent(
-                      subcat.name
-                    )}`}
+                    href={`/category/${activeCategory}/${slugify(subcat.name)}`}
                     className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm"
                     title={resourcesInSubcat.map((r) => r.name).join(", ")}
                   >

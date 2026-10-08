@@ -7,6 +7,15 @@ import { createClient } from "@/lib/supabase/client";
 import type { Resource } from "@/lib/types/database";
 import { Plus, ChevronRight } from "lucide-react";
 import Link from "next/link";
+import { slugify } from "@/lib/utils";
+
+const ease = [0.23, 1, 0.32, 1] as const;
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, transform: "translateY(14px)" },
+  animate: { opacity: 1, transform: "translateY(0px)" },
+  transition: { duration: 0.45, ease, delay },
+});
 
 type CategoryPageClientProps = {
   category: string;
@@ -68,15 +77,13 @@ export default function CategoryPageClient({
   return (
     <motion.main
       className="container py-8 space-y-8"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+      initial={{ opacity: 0, transform: "translateY(14px)" }}
+      animate={{ opacity: 1, transform: "translateY(0px)" }}
+      transition={{ duration: 0.45, ease }}
     >
       <motion.nav
         className="flex items-center gap-2 text-sm text-muted-foreground"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
+        {...fadeUp(0.05)}
       >
         <Link href="/" className="hover:text-foreground transition-colors">
           Home
@@ -98,19 +105,20 @@ export default function CategoryPageClient({
 
       <motion.div
         className="space-y-4"
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
+        {...fadeUp(0.1)}
       >
-        <h1 className="font-heading text-4xl font-bold tracking-tight md:text-5xl">
+        <h1 className="text-2xl font-medium tracking-tight md:text-4xl">
           {subcategory || categoryData.name}
         </h1>
-        <p className="text-lg text-muted-foreground max-w-3xl">
+        <h2
+          className="text-[15px] text-muted-foreground max-w-3xl"
+          style={{ margin: 0 }}
+        >
           {subcategory
             ? `${categoryData.name} resources in the ${subcategory} category`
             : categoryData.description ||
               `Explore ${categoryData.name} resources and tools.`}
-        </p>
+        </h2>
       </motion.div>
 
       {loading ? (
@@ -129,11 +137,11 @@ export default function CategoryPageClient({
           className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+          transition={{ duration: 0.3, ease, delay: 0.15 }}
         >
           {subcategories.map((subcat, index) => {
             const count = resources.filter(
-              (r) => r.subcategory === subcat.name
+              (r) => r.subcategory === subcat.name,
             ).length;
 
             return count === 0 ? (
@@ -141,10 +149,9 @@ export default function CategoryPageClient({
                 key={subcat.id}
                 className="group flex items-center justify-between p-4 rounded-lg border bg-muted/20 border-dashed opacity-60 hover:opacity-80 transition-opacity"
                 title="No resources yet - be the first to add one!"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.4 + index * 0.1 }}
-                whileHover={{ scale: 1.02 }}
+                initial={{ opacity: 0, transform: "translateY(10px)" }}
+                animate={{ opacity: 0.6, transform: "translateY(0px)" }}
+                transition={{ duration: 0.35, ease, delay: 0.18 + index * 0.04 }}
               >
                 <div className="flex-1">
                   <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
@@ -157,17 +164,14 @@ export default function CategoryPageClient({
             ) : (
               <motion.div
                 key={subcat.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, delay: 0.4 + index * 0.1 }}
-                whileHover={{ scale: 1.02, y: -2 }}
+                initial={{ opacity: 0, transform: "translateY(10px)" }}
+                animate={{ opacity: 1, transform: "translateY(0px)" }}
+                transition={{ duration: 0.35, ease, delay: 0.18 + index * 0.04 }}
                 whileTap={{ scale: 0.98 }}
               >
                 <Link
-                  href={`/category/${category}?subcategory=${encodeURIComponent(
-                    subcat.name
-                  )}`}
-                  className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm block"
+                  href={`/category/${category}/${slugify(subcat.name)}`}
+                  className="group relative flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 hover:border-foreground/40 transition-all duration-200 hover:shadow-sm"
                 >
                   <div className="flex-1">
                     <h3 className="font-medium text-sm mb-1">{subcat.name}</h3>
@@ -185,14 +189,14 @@ export default function CategoryPageClient({
           className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
+          transition={{ duration: 0.3, ease, delay: 0.15 }}
         >
           {resources.map((resource, index) => (
             <motion.div
               key={resource.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.4 + index * 0.1 }}
+              initial={{ opacity: 0, transform: "translateY(12px)" }}
+              animate={{ opacity: 1, transform: "translateY(0px)" }}
+              transition={{ duration: 0.35, ease, delay: 0.18 + index * 0.04 }}
             >
               <ResourceCard resource={resource} />
             </motion.div>
