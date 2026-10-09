@@ -37,7 +37,7 @@ export function SearchBar({
         {searchQuery ? (
           <motion.button
             onClick={() => onSearchChange("")}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+            className="absolute right-3 inset-y-0 my-auto flex h-6 w-6 items-center justify-center rounded text-muted-foreground transition-colors hover:text-foreground"
             aria-label="Clear search"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}

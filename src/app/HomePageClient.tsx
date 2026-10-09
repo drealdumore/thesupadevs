@@ -190,29 +190,28 @@ export default function HomePageClient({
               Search Results ({filteredResources.length})
             </h2>
             {filteredResources.length === 0 ? (
-              <div className="text-center py-16 space-y-4">
-                <div className="mx-auto w-24 h-24 bg-muted/30 rounded-full flex items-center justify-center">
-                  <Search className="h-8 w-8 text-muted-foreground" />
+              <motion.div
+                className="rounded-2xl border bg-card p-12 text-center space-y-4"
+                initial={{ opacity: 0, transform: "translateY(12px)" }}
+                animate={{ opacity: 1, transform: "translateY(0px)" }}
+                transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+              >
+                <div className="mx-auto w-16 h-16 bg-muted/40 rounded-full flex items-center justify-center">
+                  <Search className="h-7 w-7 text-muted-foreground" />
                 </div>
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold">No resources found</h3>
                   <p className="text-muted-foreground max-w-md mx-auto">
-                    We couldn't find any resources matching "{searchQuery}". Try
-                    a different search term or add this resource yourself!
+                    Nothing matched &ldquo;{searchQuery}&rdquo;. Try a different term or submit it yourself.
                   </p>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button variant="outline" onClick={() => setSearchQuery("")}>
-                    Clear Search
+                <AddResourceModal>
+                  <Button variant="outline" className="gap-2 rounded-full mt-2">
+                    <Plus className="h-4 w-4" />
+                    Submit a Resource
                   </Button>
-                  <AddResourceModal>
-                    <Button className="gap-2">
-                      <Plus className="h-4 w-4" />
-                      Add Resource
-                    </Button>
-                  </AddResourceModal>
-                </div>
-              </div>
+                </AddResourceModal>
+              </motion.div>
             ) : (
               <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredResources.map((resource) => (
