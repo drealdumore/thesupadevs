@@ -250,7 +250,16 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
       setAutoFilled(false);
     }
 
-    const id = ++requestId.current; // later calls win; older responses are ignored
+    // Check for duplicates before starting the scrape spinner
+    const isDuplicate = await checkDuplicateUrl(normalized);
+    if (isDuplicate) {
+      setUrlValid(false);
+      setUrlError("This resource is already in the library.");
+      setScraping(false);
+      return;
+    }
+
+    const id = ++requestId.current;
     setScraping(true);
     setUrlValid(null);
     setUrlError(null);
@@ -260,13 +269,6 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
     skipRef.current = setTimeout(() => setShowSkip(true), 3000);
 
     try {
-      if (await checkDuplicateUrl(normalized)) {
-        if (id !== requestId.current) return;
-        setUrlValid(false);
-        setUrlError("This resource is already in the library.");
-        return;
-      }
-
       const response = await fetch(
         `/api/scrape-metadata?url=${encodeURIComponent(normalized)}`
       );
@@ -353,6 +355,21 @@ export function AddResourceModal({ children }: AddResourceModalProps) {
     setSubmitting(true);
     try {
       const supabase = createClient();
+
+      // Guard against duplicates at submit time, not just during scrape
+      const { data: existing } = await supabase
+        .from("resources")
+        .select("id")
+        .eq("url", data.url)
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        setUrlValid(false);
+        setUrlError("This resource is already in the library.");
+        setSubmitting(false);
+        return;
+      }
+
       const { error } = await supabase.from("resources").insert({
         name: data.name,
         category: data.category as Category,

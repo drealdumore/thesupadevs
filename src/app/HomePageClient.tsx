@@ -25,7 +25,6 @@ import { AddResourceModal } from "@/components/add-resource-modal";
 import { useRef, useState, useEffect } from "react";
 import { slugify } from "@/lib/utils";
 
-// Import new components
 import { HeroSection } from "@/components/home/HeroSection";
 import { SearchBar } from "@/components/home/SearchBar";
 import { CategoryFilters } from "@/components/home/CategoryFilters";
