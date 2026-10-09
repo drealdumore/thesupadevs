@@ -1,7 +1,7 @@
 
 export default function Loading() {
   return (
-    <div className="initial-loader h-dvh select-none flex items-center justify-center">
+    <div className="fixed inset-0 z-50 select-none flex items-center justify-center bg-background">
       <div className="relative">
         {/* Base text with low opacity */}
         <div

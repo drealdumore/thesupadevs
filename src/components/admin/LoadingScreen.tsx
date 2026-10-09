@@ -11,8 +11,8 @@ interface LoadingScreenProps {
 
 export function LoadingScreen({ loadingStage, loadingProgress }: LoadingScreenProps) {
   return (
-    <div className="container py-8 max-w-7xl min-h-[calc(100vh-4rem)]">
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-8">
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-background">
+      <div className="flex flex-col items-center justify-center space-y-8">
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}

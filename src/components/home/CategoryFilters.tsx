@@ -36,7 +36,7 @@ export function CategoryFilters({
   categoryIcons,
 }: CategoryFiltersProps) {
   return (
-    <div className="sticky top-0 z-20 -mx-4 border-b bg-background/90 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+    <div className="sticky top-[70px] z-20 -mx-4 border-b bg-background/90 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="flex gap-2 overflow-x-auto [scrollbar-width:none] md:flex-wrap [&::-webkit-scrollbar]:hidden">
         {/* "All" pill */}
         <motion.button
