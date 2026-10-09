@@ -16,6 +16,7 @@ import {
   Plus,
   Sparkles,
   Search,
+  Smartphone,
 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,7 @@ const categoryIcons: Record<
   Tools: Wrench,
   Learning: BookOpen,
   Wallpaper: Sparkles,
+  Mobile: Smartphone,
 };
 
 const categoryColors: Record<string, string> = {

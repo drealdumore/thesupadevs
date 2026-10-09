@@ -50,7 +50,7 @@ export const getCachedCategories = unstable_cache(
   ["categories"],
   {
     tags: [CACHE_TAGS.CATEGORIES],
-    revalidate: CACHE_DURATIONS.LONG,
+    revalidate: CACHE_DURATIONS.SHORT,
   }
 );
 
@@ -68,7 +68,7 @@ export const getCachedSubcategories = unstable_cache(
   ["subcategories"],
   {
     tags: [CACHE_TAGS.SUBCATEGORIES],
-    revalidate: CACHE_DURATIONS.LONG,
+    revalidate: CACHE_DURATIONS.SHORT,
   }
 );
 

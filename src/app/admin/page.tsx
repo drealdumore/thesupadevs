@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { Resource, Category } from "@/lib/types/database";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,9 +20,12 @@ import {
   Search,
   Plus,
   BarChart3,
-  RefreshCw,
   Download,
   Clock,
+  Percent,
+  Loader2,
+  Pencil,
+  ExternalLink,
   Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -67,6 +69,105 @@ type Suggestion = {
   confidence: string;
 };
 
+const getHostname = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+};
+
+/* ---------- small presentational helpers ---------- */
+
+function Field({
+  id,
+  label,
+  required,
+  hint,
+  children,
+}: {
+  id: string;
+  label: string;
+  required?: boolean;
+  hint?: string | null;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>
+        {label}
+        {required && (
+          <span className="ml-0.5 text-destructive" aria-hidden="true">
+            *
+          </span>
+        )}
+      </Label>
+      {children}
+      {hint && <p className="text-sm text-destructive">{hint}</p>}
+    </div>
+  );
+}
+
+function StatCard({
+  icon: Icon,
+  label,
+  value,
+  iconClass = "",
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: React.ReactNode;
+  iconClass?: string;
+}) {
+  return (
+    <div className="rounded-2xl border bg-card p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+        <Icon className={`h-4 w-4 ${iconClass}`} />
+        {label}
+      </div>
+      <div className="font-heading text-3xl font-bold">{value}</div>
+    </div>
+  );
+}
+
+function ManagerRow({
+  label,
+  count,
+  deleting,
+  onDelete,
+}: {
+  label: string;
+  count: number;
+  deleting: boolean;
+  onDelete: () => void;
+}) {
+  return (
+    <li className="flex items-center justify-between gap-3 border-t py-2.5 first:border-t-0">
+      <span className="min-w-0 truncate text-sm font-medium">{label}</span>
+      <div className="flex shrink-0 items-center gap-2">
+        <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+          {count} {count === 1 ? "resource" : "resources"}
+        </span>
+        <Button
+          type="button"
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-muted-foreground hover:text-destructive"
+          aria-label={`Delete ${label}`}
+          onClick={onDelete}
+          disabled={deleting}
+        >
+          {deleting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Trash2 className="h-4 w-4" />
+          )}
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 // Image preview for the edit modal
 function EditImagePreview({ imageUrl }: { imageUrl: string }) {
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -78,10 +179,9 @@ function EditImagePreview({ imageUrl }: { imageUrl: string }) {
   }, [imageUrl]);
 
   return (
-    <div className="mt-2 rounded-lg border p-2">
-      <p className="mb-2 text-xs text-muted-foreground">Preview image</p>
+    <div className="mt-2 rounded-xl border p-2">
       {imageUrl && !imageError ? (
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded bg-muted">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-md bg-muted">
           {!imageLoaded && (
             <div className="absolute inset-0 animate-pulse bg-muted" />
           )}
@@ -101,8 +201,9 @@ function EditImagePreview({ imageUrl }: { imageUrl: string }) {
           />
         </div>
       ) : (
-        <div className="flex aspect-[16/9] w-full items-center justify-center rounded bg-muted/30 text-muted-foreground/50">
+        <div className="flex aspect-[16/9] w-full flex-col items-center justify-center gap-1 rounded-md bg-muted/30 text-muted-foreground/60">
           <ImageIcon className="h-8 w-8" strokeWidth={1.5} />
+          <span className="text-xs">Image couldn&apos;t be loaded</span>
         </div>
       )}
     </div>
@@ -149,6 +250,7 @@ export default function AdminPage() {
 
   // Modals & dialogs
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
+  const [saving, setSaving] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [showResourceDetails, setShowResourceDetails] =
@@ -249,8 +351,6 @@ export default function AdminPage() {
       const cats = categoriesRes.data || [];
       setCategories(cats);
       setSubcategories(subcategoriesRes.data || []);
-      // Keep the current pick; only fall back to the first category when the
-      // pick is empty or was deleted
       setSelectedCategoryForSub((prev) =>
         prev && cats.some((c) => c.id === prev) ? prev : cats[0]?.id ?? ""
       );
@@ -309,8 +409,7 @@ export default function AdminPage() {
     brokenUrls,
   ]);
 
-  // Never let hidden rows stay selected: otherwise "select all", then a new
-  // filter, then "delete" would remove resources you can't see
+  // Never let hidden rows stay selected
   useEffect(() => {
     setSelectedResources((prev) => {
       if (prev.size === 0) return prev;
@@ -326,6 +425,20 @@ export default function AdminPage() {
     approved: allResources.filter((r) => r.status === "approved").length,
     broken: brokenUrls.size,
   };
+
+  // How many resources use each category / subcategory (shown in the manager)
+  const usage = useMemo(() => {
+    const byCategory: Record<string, number> = {};
+    const bySub: Record<string, number> = {};
+    allResources.forEach((r) => {
+      byCategory[r.category] = (byCategory[r.category] ?? 0) + 1;
+      if (r.subcategory) {
+        const key = `${r.category}::${r.subcategory}`;
+        bySub[key] = (bySub[key] ?? 0) + 1;
+      }
+    });
+    return { byCategory, bySub };
+  }, [allResources]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -347,6 +460,18 @@ export default function AdminPage() {
   const getSubcategoriesForCategory = (categoryId: string) =>
     subcategories.filter((sub) => sub.category_id === categoryId);
 
+  async function revalidateCache(tags?: string[]) {
+    try {
+      await fetch("/api/revalidate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tags }),
+      });
+    } catch {
+      // non-critical — cache expires naturally
+    }
+  }
+
   async function addCategory(name: string) {
     setAddingCategory(true);
     try {
@@ -354,6 +479,7 @@ export default function AdminPage() {
       const { error } = await supabase.from("categories").insert({ name });
       if (error) throw error;
       await fetchCategories();
+      await revalidateCache(["categories", "subcategories"]);
     } catch (error) {
       console.error("Error adding category:", error);
       toast.error("Couldn't add category");
@@ -362,19 +488,26 @@ export default function AdminPage() {
     }
   }
 
-  async function deleteCategory(id: string) {
+  async function deleteCategory(category: CategoryData) {
+    const n = usage.byCategory[category.name] ?? 0;
     if (
       !window.confirm(
-        "Delete this category? Its subcategories may be removed too."
+        `Delete "${category.name}"? ${n} ${
+          n === 1 ? "resource uses" : "resources use"
+        } it, and its subcategories may be removed too.`
       )
     )
       return;
-    setDeletingCategory(id);
+    setDeletingCategory(category.id);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from("categories").delete().eq("id", id);
+      const { error } = await supabase
+        .from("categories")
+        .delete()
+        .eq("id", category.id);
       if (error) throw error;
       await fetchCategories();
+      await revalidateCache(["categories", "subcategories"]);
     } catch (error) {
       console.error("Error deleting category:", error);
       toast.error("Couldn't delete category");
@@ -392,6 +525,7 @@ export default function AdminPage() {
         .insert({ name, category_id: categoryId });
       if (error) throw error;
       await fetchCategories();
+      await revalidateCache(["subcategories"]);
     } catch (error) {
       console.error("Error adding subcategory:", error);
       toast.error("Couldn't add subcategory");
@@ -400,17 +534,26 @@ export default function AdminPage() {
     }
   }
 
-  async function deleteSubcategory(id: string) {
-    if (!window.confirm("Delete this subcategory?")) return;
-    setDeletingSubcategory(id);
+  async function deleteSubcategory(sub: SubcategoryData, categoryName: string) {
+    const n = usage.bySub[`${categoryName}::${sub.name}`] ?? 0;
+    if (
+      !window.confirm(
+        `Delete "${sub.name}"? ${n} ${
+          n === 1 ? "resource uses" : "resources use"
+        } it.`
+      )
+    )
+      return;
+    setDeletingSubcategory(sub.id);
     try {
       const supabase = createClient();
       const { error } = await supabase
         .from("subcategories")
         .delete()
-        .eq("id", id);
+        .eq("id", sub.id);
       if (error) throw error;
       await fetchCategories();
+      await revalidateCache(["subcategories"]);
     } catch (error) {
       console.error("Error deleting subcategory:", error);
       toast.error("Couldn't delete subcategory");
@@ -608,15 +751,15 @@ export default function AdminPage() {
     });
   }
 
-  const editValid =
-    editForm.name.trim().length >= 2 &&
-    editForm.description.trim().length >= 10 &&
-    /^https?:\/\/\S+\.\S+/.test(editForm.url.trim()) &&
-    !!editForm.category;
+  const nameOk = editForm.name.trim().length >= 2;
+  const descriptionOk = editForm.description.trim().length >= 10;
+  const urlOk = /^https?:\/\/\S+\.\S+/.test(editForm.url.trim());
+  const editValid = nameOk && descriptionOk && urlOk && !!editForm.category;
 
-  function handleEditSubmit() {
-    if (!editingResource || !editValid) return;
-    updateResource(editingResource.id, {
+  async function handleEditSubmit() {
+    if (!editingResource || !editValid || saving) return;
+    setSaving(true);
+    const ok = await updateResource(editingResource.id, {
       name: editForm.name.trim(),
       description: editForm.description.trim(),
       url: editForm.url.trim(),
@@ -624,7 +767,9 @@ export default function AdminPage() {
       subcategory: editForm.subcategory || null,
       tags: editForm.tags,
       image_url: editForm.image_url.trim() || null,
-    }).then((ok) => ok && toast.success("Changes saved"));
+    });
+    setSaving(false);
+    if (ok) toast.success("Changes saved");
   }
 
   function addEditTag() {
@@ -676,15 +821,14 @@ export default function AdminPage() {
         })
       );
 
-      setBrokenUrls(new Set(broken)); // incremental progress
+      setBrokenUrls(new Set(broken));
     }
 
     setCheckingUrls(false);
     toast.success(`Link check done: ${broken.size} broken`);
   }
 
-  // AI categorization. The batch index is passed in rather than read from
-  // state, because state is stale inside the callbacks that start the next batch
+  // AI categorization. The batch index is passed in rather than read from state
   async function processBatch(batchIndex: number) {
     setCategorizing(true);
     const offset = batchIndex * batchSize;
@@ -758,7 +902,6 @@ export default function AdminPage() {
 
     try {
       const supabase = createClient();
-      // The old subcategory belongs to the old category, so it is cleared too
       const results = await Promise.all(
         changes.map((s) =>
           supabase
@@ -773,7 +916,7 @@ export default function AdminPage() {
 
       if (failed > 0) {
         toast.error(`${failed} of ${changes.length} updates failed`);
-        return; // stay on this batch so nothing is skipped
+        return;
       }
       toast.success(`Recategorized ${changes.length} resources`);
 
@@ -851,12 +994,27 @@ export default function AdminPage() {
     ? getSubcategoriesForCategory(editCategoryData.id)
     : [];
 
+  const managerCategoryName =
+    categories.find((c) => c.id === selectedCategoryForSub)?.name ?? "";
+  const managerSubcategories = getSubcategoriesForCategory(
+    selectedCategoryForSub
+  );
+
+  const approvalRate =
+    allResources.length > 0
+      ? Math.round((counts.approved / allResources.length) * 100)
+      : 0;
+  const categoriesByCount = [...categories].sort(
+    (a, b) => (usage.byCategory[b.name] ?? 0) - (usage.byCategory[a.name] ?? 0)
+  );
+
   return (
-    <div className="container max-w-7xl overflow-x-hidden py-8">
+    // overflow-x-clip (not hidden) so sticky children keep working
+    <div className="container max-w-7xl space-y-6 overflow-x-clip py-8">
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
         <AdminHeader
           counts={counts}
@@ -868,9 +1026,9 @@ export default function AdminPage() {
       </motion.div>
 
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.5, delay: 0.05, ease: [0.16, 1, 0.3, 1] }}
       >
         <FilterControls
           searchQuery={searchQuery}
@@ -900,66 +1058,82 @@ export default function AdminPage() {
       </motion.div>
 
       {/* Resources list */}
-      <div className="space-y-4">
-        <AnimatePresence mode="wait">
-          {filteredAndSortedResources.length === 0 ? (
-            <motion.div
-              key="no-results"
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card className="border-2 p-12 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-muted/30">
-                  <Search className="h-6 w-6 text-muted-foreground" />
-                </div>
-                <p className="mb-2 text-muted-foreground">No resources found</p>
-                <p className="text-sm text-muted-foreground">
-                  Try adjusting your search or filters
-                </p>
-              </Card>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="results"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="space-y-4"
-            >
-              {filteredAndSortedResources.map((resource, index) => (
-                <motion.div
-                  key={resource.id}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  // Delay is capped: an uncapped index * 0.05 made row 300 wait 15s
-                  transition={{
-                    duration: 0.35,
-                    delay: Math.min(index, 12) * 0.03,
-                    ease: [0.16, 1, 0.3, 1],
+      <AnimatePresence mode="wait">
+        {filteredAndSortedResources.length === 0 ? (
+          <motion.div
+            key="no-results"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            <div className="rounded-2xl border border-dashed bg-card px-6 py-16 text-center">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                <Search className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <h3 className="font-heading text-lg font-semibold">
+                No resources match
+              </h3>
+              <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground">
+                Try a different search, or clear the status and category
+                filters.
+              </p>
+              {(searchQuery ||
+                filter !== "all" ||
+                selectedCategory !== "all") && (
+                <Button
+                  variant="outline"
+                  className="mt-5 rounded-full"
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFilter("all");
+                    setSelectedCategory("all");
                   }}
                 >
-                  <ResourceCard
-                    resource={resource}
-                    index={index}
-                    isSelected={selectedResources.has(resource.id)}
-                    onToggleSelection={toggleResourceSelection}
-                    onEdit={openEditModal}
-                    onShowDetails={setShowResourceDetails}
-                    onUpdateStatus={updateResourceStatus}
-                    onConfirmDelete={confirmDeleteResource}
-                    onRescrapeImage={rescrapeImage}
-                  />
-                </motion.div>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+                  Clear filters
+                </Button>
+              )}
+            </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="results"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-3"
+          >
+            {filteredAndSortedResources.map((resource, index) => (
+              <motion.div
+                key={resource.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                // Capped so row 300 doesn't wait seconds to appear
+                transition={{
+                  duration: 0.3,
+                  delay: Math.min(index, 12) * 0.025,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+              >
+                <ResourceCard
+                  resource={resource}
+                  index={index}
+                  isSelected={selectedResources.has(resource.id)}
+                  onToggleSelection={toggleResourceSelection}
+                  onEdit={openEditModal}
+                  onShowDetails={setShowResourceDetails}
+                  onUpdateStatus={updateResourceStatus}
+                  onConfirmDelete={confirmDeleteResource}
+                  onRescrapeImage={rescrapeImage}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Edit resource modal */}
+      {/* ---------- Edit resource ---------- */}
       <SimpleKitModal
         open={!!editingResource}
         onOpenChange={(o) => {
@@ -969,15 +1143,32 @@ export default function AdminPage() {
         <SimpleKitModalContent>
           <SimpleKitModalHeader>
             <SimpleKitModalTitle>Edit resource</SimpleKitModalTitle>
-            <p className="mt-2 text-center text-sm text-muted-foreground">
-              Update the details. Changes are saved immediately.
-            </p>
+            {editingResource && (
+              <p className="mt-2 text-center text-sm text-muted-foreground">
+                {getHostname(editingResource.url)} · saved immediately
+              </p>
+            )}
           </SimpleKitModalHeader>
 
           <SimpleKitModalBody>
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Name *</Label>
+            <form
+              id="edit-form"
+              className="space-y-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleEditSubmit();
+              }}
+            >
+              <Field
+                id="edit-name"
+                label="Name"
+                required
+                hint={
+                  editForm.name && !nameOk
+                    ? "Name must be at least 2 characters"
+                    : null
+                }
+              >
                 <Input
                   id="edit-name"
                   placeholder="e.g., Framer Motion"
@@ -986,60 +1177,40 @@ export default function AdminPage() {
                     setEditForm((prev) => ({ ...prev, name: e.target.value }))
                   }
                 />
-              </div>
+              </Field>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-category">Category *</Label>
-                <Select
-                  value={editForm.category}
-                  onValueChange={(value) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      category: value as Category,
-                      // A subcategory only belongs to its own category
-                      subcategory:
-                        value === prev.category ? prev.subcategory : "",
-                    }))
+              <Field
+                id="edit-url"
+                label="Link"
+                required
+                hint={
+                  editForm.url && !urlOk
+                    ? "Enter a full URL, like https://example.com"
+                    : null
+                }
+              >
+                <Input
+                  id="edit-url"
+                  type="text"
+                  inputMode="url"
+                  placeholder="https://example.com"
+                  value={editForm.url}
+                  onChange={(e) =>
+                    setEditForm((prev) => ({ ...prev, url: e.target.value }))
                   }
-                >
-                  <SelectTrigger id="edit-category">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                />
+              </Field>
 
-              {editSubcategories.length > 0 && (
-                <div className="space-y-2">
-                  <Label htmlFor="edit-subcategory">Subcategory</Label>
-                  <Select
-                    value={editForm.subcategory}
-                    onValueChange={(value) =>
-                      setEditForm((prev) => ({ ...prev, subcategory: value }))
-                    }
-                  >
-                    <SelectTrigger id="edit-subcategory">
-                      <SelectValue placeholder="Optional" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {editSubcategories.map((subcat) => (
-                        <SelectItem key={subcat.id} value={subcat.name}>
-                          {subcat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-description">Description *</Label>
+              <Field
+                id="edit-description"
+                label="Description"
+                required
+                hint={
+                  editForm.description && !descriptionOk
+                    ? "Description must be at least 10 characters"
+                    : null
+                }
+              >
                 <Textarea
                   id="edit-description"
                   placeholder="What does it do, and why is it useful?"
@@ -1052,23 +1223,59 @@ export default function AdminPage() {
                     }))
                   }
                 />
+              </Field>
+
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field id="edit-category" label="Category" required>
+                  <Select
+                    value={editForm.category}
+                    onValueChange={(value) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        category: value as Category,
+                        // A subcategory only belongs to its own category
+                        subcategory:
+                          value === prev.category ? prev.subcategory : "",
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="edit-category">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.name}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                {editSubcategories.length > 0 && (
+                  <Field id="edit-subcategory" label="Subcategory">
+                    <Select
+                      value={editForm.subcategory}
+                      onValueChange={(value) =>
+                        setEditForm((prev) => ({ ...prev, subcategory: value }))
+                      }
+                    >
+                      <SelectTrigger id="edit-subcategory">
+                        <SelectValue placeholder="Optional" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {editSubcategories.map((subcat) => (
+                          <SelectItem key={subcat.id} value={subcat.name}>
+                            {subcat.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-url">URL *</Label>
-                <Input
-                  id="edit-url"
-                  type="url"
-                  placeholder="https://example.com"
-                  value={editForm.url}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({ ...prev, url: e.target.value }))
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-image">Image URL</Label>
+              <Field id="edit-image" label="Image URL">
                 <div className="flex gap-2">
                   <Input
                     id="edit-image"
@@ -1108,19 +1315,18 @@ export default function AdminPage() {
                       }
                     }}
                     disabled={!editForm.url}
-                    className="gap-1 whitespace-nowrap"
+                    className="h-10 gap-1 whitespace-nowrap"
                   >
-                    <Download className="h-3 w-3" />
+                    <Download className="h-3.5 w-3.5" />
                     Fetch
                   </Button>
                 </div>
                 {editForm.image_url && (
                   <EditImagePreview imageUrl={editForm.image_url} />
                 )}
-              </div>
+              </Field>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-tags">Tags</Label>
+              <Field id="edit-tags" label="Tags">
                 <div className="flex gap-2">
                   <Input
                     id="edit-tags"
@@ -1152,7 +1358,7 @@ export default function AdminPage() {
                               tags: prev.tags.filter((t) => t !== tag),
                             }))
                           }
-                          className="ml-1 hover:text-destructive"
+                          className="ml-1 rounded hover:text-destructive"
                         >
                           <X className="h-3 w-3" />
                         </button>
@@ -1160,23 +1366,35 @@ export default function AdminPage() {
                     ))}
                   </div>
                 )}
-              </div>
-            </div>
+              </Field>
+            </form>
           </SimpleKitModalBody>
 
           <SimpleKitModalFooter>
-            <Button
-              onClick={handleEditSubmit}
-              disabled={!editValid}
-              className="w-full"
-            >
-              Save changes
-            </Button>
+            <div className="flex w-full gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 rounded-full"
+                onClick={() => setEditingResource(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                form="edit-form"
+                disabled={!editValid || saving}
+                className="flex-1 gap-2 rounded-full"
+              >
+                {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+                {saving ? "Saving..." : "Save changes"}
+              </Button>
+            </div>
           </SimpleKitModalFooter>
         </SimpleKitModalContent>
       </SimpleKitModal>
 
-      {/* Resource details modal */}
+      {/* ---------- Resource details ---------- */}
       <SimpleKitModal
         open={!!showResourceDetails}
         onOpenChange={(o) => {
@@ -1190,90 +1408,121 @@ export default function AdminPage() {
 
           <SimpleKitModalBody>
             {showResourceDetails && (
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  {showResourceDetails.image_url && (
-                    <img
-                      src={showResourceDetails.image_url}
-                      alt={showResourceDetails.name}
-                      className="h-24 w-24 rounded-lg object-cover"
-                    />
-                  )}
-                  <div className="flex-1">
-                    <h3 className="mb-2 text-lg font-semibold">
-                      {showResourceDetails.name}
-                    </h3>
-                    <div className="mb-2 flex gap-2">
-                      <Badge
-                        variant={
-                          showResourceDetails.status === "approved"
-                            ? "default"
-                            : "secondary"
-                        }
-                      >
-                        {showResourceDetails.status}
-                      </Badge>
-                      <Badge variant="outline">
-                        {showResourceDetails.category}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {showResourceDetails.description}
-                    </p>
+              <div className="space-y-5">
+                {showResourceDetails.image_url && (
+                  <img
+                    src={showResourceDetails.image_url}
+                    alt=""
+                    className="aspect-video w-full rounded-xl border object-cover"
+                  />
+                )}
+
+                <div className="space-y-2">
+                  <h3 className="font-heading text-xl font-semibold leading-tight">
+                    {showResourceDetails.name}
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge
+                      variant={
+                        showResourceDetails.status === "approved"
+                          ? "default"
+                          : "secondary"
+                      }
+                    >
+                      {showResourceDetails.status}
+                    </Badge>
+                    <Badge variant="outline">
+                      {showResourceDetails.category}
+                      {showResourceDetails.subcategory
+                        ? ` / ${showResourceDetails.subcategory}`
+                        : ""}
+                    </Badge>
                   </div>
+                  <p className="text-sm text-muted-foreground">
+                    {showResourceDetails.description}
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <strong>URL:</strong>
-                    <a
-                      href={showResourceDetails.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block truncate text-primary hover:underline"
-                    >
-                      {showResourceDetails.url}
-                    </a>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-4 rounded-xl border p-4 text-sm">
+                  <div className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">Link</dt>
+                    <dd className="truncate font-medium">
+                      {getHostname(showResourceDetails.url)}
+                    </dd>
                   </div>
                   <div>
-                    <strong>Created:</strong>
-                    <span className="block">
-                      {new Date(showResourceDetails.created_at).toLocaleString()}
-                    </span>
+                    <dt className="text-xs text-muted-foreground">Added</dt>
+                    <dd className="font-medium">
+                      {new Date(
+                        showResourceDetails.created_at
+                      ).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                    </dd>
                   </div>
-                  {showResourceDetails.subcategory && (
-                    <div>
-                      <strong>Subcategory:</strong>
-                      <span className="block">
-                        {showResourceDetails.subcategory}
-                      </span>
-                    </div>
-                  )}
-                  <div>
-                    <strong>Tags:</strong>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {showResourceDetails.tags.map((tag) => (
-                        <Badge key={tag} variant="outline" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                    </div>
+                  <div className="col-span-2">
+                    <dt className="mb-1 text-xs text-muted-foreground">Tags</dt>
+                    <dd className="flex flex-wrap gap-1">
+                      {showResourceDetails.tags.length > 0 ? (
+                        showResourceDetails.tags.map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="outline"
+                            className="text-xs"
+                          >
+                            {tag}
+                          </Badge>
+                        ))
+                      ) : (
+                        <span className="text-muted-foreground">No tags</span>
+                      )}
+                    </dd>
                   </div>
-                </div>
+                </dl>
               </div>
             )}
           </SimpleKitModalBody>
+
+          {showResourceDetails && (
+            <SimpleKitModalFooter>
+              <div className="flex w-full gap-2">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="flex-1 gap-2 rounded-full"
+                >
+                  <a
+                    href={showResourceDetails.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Visit site
+                  </a>
+                </Button>
+                <Button
+                  className="flex-1 gap-2 rounded-full"
+                  onClick={() => {
+                    const r = showResourceDetails;
+                    setShowResourceDetails(null);
+                    openEditModal(r);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                  Edit
+                </Button>
+              </div>
+            </SimpleKitModalFooter>
+          )}
         </SimpleKitModalContent>
       </SimpleKitModal>
 
-      {/* Category manager modal */}
+      {/* ---------- Category manager ---------- */}
       <SimpleKitModal
         open={showCategoryManager}
         onOpenChange={setShowCategoryManager}
       >
         <SimpleKitModalContent>
           <SimpleKitModalHeader>
-            <SimpleKitModalTitle>Category management</SimpleKitModalTitle>
+            <SimpleKitModalTitle>Categories</SimpleKitModalTitle>
             <p className="mt-2 text-center text-sm text-muted-foreground">
               Add or remove categories and subcategories
             </p>
@@ -1282,198 +1531,202 @@ export default function AdminPage() {
           <SimpleKitModalBody>
             <Tabs defaultValue="categories" className="w-full">
               <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="categories">Categories</TabsTrigger>
+                <TabsTrigger value="categories">
+                  Categories ({categories.length})
+                </TabsTrigger>
                 <TabsTrigger value="subcategories">Subcategories</TabsTrigger>
               </TabsList>
 
-              <TabsContent value="categories" className="space-y-4">
-                <div className="flex gap-2">
+              <TabsContent value="categories" className="mt-4 space-y-4">
+                <form
+                  className="flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const name = newCategory.trim();
+                    if (name) {
+                      addCategory(name);
+                      setNewCategory("");
+                    }
+                  }}
+                >
                   <Input
                     placeholder="New category name"
+                    aria-label="New category name"
                     value={newCategory}
                     onChange={(e) => setNewCategory(e.target.value)}
                   />
                   <Button
-                    aria-label="Add category"
-                    onClick={() => {
-                      if (newCategory.trim()) {
-                        addCategory(newCategory.trim());
-                        setNewCategory("");
-                      }
-                    }}
-                    disabled={addingCategory}
+                    type="submit"
+                    className="gap-1"
+                    disabled={addingCategory || !newCategory.trim()}
                   >
                     {addingCategory ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Plus className="h-4 w-4" />
                     )}
+                    Add
                   </Button>
-                </div>
+                </form>
 
-                <div className="space-y-2">
-                  {categories.map((category) => (
-                    <div
-                      key={category.id}
-                      className="flex items-center justify-between rounded border p-2"
-                    >
-                      <span>{category.name}</span>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        aria-label={`Delete ${category.name}`}
-                        onClick={() => deleteCategory(category.id)}
-                        disabled={deletingCategory === category.id}
-                      >
-                        {deletingCategory === category.id ? (
-                          <RefreshCw className="h-3 w-3 animate-spin" />
-                        ) : (
-                          <X className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                {categories.length === 0 ? (
+                  <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    No categories yet.
+                  </p>
+                ) : (
+                  <ul className="rounded-xl border px-3">
+                    {categories.map((category) => (
+                      <ManagerRow
+                        key={category.id}
+                        label={category.name}
+                        count={usage.byCategory[category.name] ?? 0}
+                        deleting={deletingCategory === category.id}
+                        onDelete={() => deleteCategory(category)}
+                      />
+                    ))}
+                  </ul>
+                )}
               </TabsContent>
 
-              <TabsContent value="subcategories" className="space-y-4">
-                <div className="space-y-2">
-                  <Select
-                    value={selectedCategoryForSub}
-                    onValueChange={setSelectedCategoryForSub}
+              <TabsContent value="subcategories" className="mt-4 space-y-4">
+                <Select
+                  value={selectedCategoryForSub}
+                  onValueChange={setSelectedCategoryForSub}
+                >
+                  <SelectTrigger aria-label="Category">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <form
+                  className="flex gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const name = newSubcategory.trim();
+                    if (name && selectedCategoryForSub) {
+                      addSubcategory(name, selectedCategoryForSub);
+                      setNewSubcategory("");
+                    }
+                  }}
+                >
+                  <Input
+                    placeholder="New subcategory name"
+                    aria-label="New subcategory name"
+                    value={newSubcategory}
+                    onChange={(e) => setNewSubcategory(e.target.value)}
+                  />
+                  <Button
+                    type="submit"
+                    className="gap-1"
+                    disabled={
+                      !selectedCategoryForSub ||
+                      addingSubcategory ||
+                      !newSubcategory.trim()
+                    }
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat.id} value={cat.id}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    {addingSubcategory ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                    Add
+                  </Button>
+                </form>
 
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="New subcategory name"
-                      value={newSubcategory}
-                      onChange={(e) => setNewSubcategory(e.target.value)}
-                    />
-                    <Button
-                      aria-label="Add subcategory"
-                      onClick={() => {
-                        if (newSubcategory.trim() && selectedCategoryForSub) {
-                          addSubcategory(
-                            newSubcategory.trim(),
-                            selectedCategoryForSub
-                          );
-                          setNewSubcategory("");
-                        }
-                      }}
-                      disabled={!selectedCategoryForSub || addingSubcategory}
-                    >
-                      {addingSubcategory ? (
-                        <RefreshCw className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Plus className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {getSubcategoriesForCategory(selectedCategoryForSub).map(
-                    (subcategory) => (
-                      <div
+                {managerSubcategories.length === 0 ? (
+                  <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+                    No subcategories for{" "}
+                    {managerCategoryName || "this category"} yet.
+                  </p>
+                ) : (
+                  <ul className="rounded-xl border px-3">
+                    {managerSubcategories.map((subcategory) => (
+                      <ManagerRow
                         key={subcategory.id}
-                        className="flex items-center justify-between rounded border p-2"
-                      >
-                        <span>{subcategory.name}</span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          aria-label={`Delete ${subcategory.name}`}
-                          onClick={() => deleteSubcategory(subcategory.id)}
-                          disabled={deletingSubcategory === subcategory.id}
-                        >
-                          {deletingSubcategory === subcategory.id ? (
-                            <RefreshCw className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <X className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    )
-                  )}
-                </div>
+                        label={subcategory.name}
+                        count={
+                          usage.bySub[
+                            `${managerCategoryName}::${subcategory.name}`
+                          ] ?? 0
+                        }
+                        deleting={deletingSubcategory === subcategory.id}
+                        onDelete={() =>
+                          deleteSubcategory(subcategory, managerCategoryName)
+                        }
+                      />
+                    ))}
+                  </ul>
+                )}
               </TabsContent>
             </Tabs>
           </SimpleKitModalBody>
         </SimpleKitModalContent>
       </SimpleKitModal>
 
-      {/* Analytics modal */}
+      {/* ---------- Analytics ---------- */}
       <SimpleKitModal open={showAnalytics} onOpenChange={setShowAnalytics}>
         <SimpleKitModalContent>
           <SimpleKitModalHeader>
             <SimpleKitModalTitle>Analytics</SimpleKitModalTitle>
             <p className="mt-2 text-center text-sm text-muted-foreground">
-              Resource statistics and insights
+              How the library is doing
             </p>
           </SimpleKitModalHeader>
 
           <SimpleKitModalBody>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Card className="p-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-blue-500" />
-                  <span className="font-medium">Total</span>
-                </div>
-                <div className="text-2xl font-bold">{allResources.length}</div>
-              </Card>
-
-              <Card className="p-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  <span className="font-medium">Approved</span>
-                </div>
-                <div className="text-2xl font-bold text-green-600">
-                  {counts.approved}
-                </div>
-              </Card>
-
-              <Card className="p-4">
-                <div className="mb-2 flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-yellow-500" />
-                  <span className="font-medium">Pending</span>
-                </div>
-                <div className="text-2xl font-bold text-yellow-600">
-                  {counts.pending}
-                </div>
-              </Card>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <StatCard
+                icon={BarChart3}
+                label="Total"
+                value={allResources.length}
+                iconClass="text-blue-500"
+              />
+              <StatCard
+                icon={Check}
+                label="Approved"
+                value={counts.approved}
+                iconClass="text-green-500"
+              />
+              <StatCard
+                icon={Clock}
+                label="Pending"
+                value={counts.pending}
+                iconClass="text-yellow-500"
+              />
+              <StatCard
+                icon={Percent}
+                label="Approval rate"
+                value={`${approvalRate}%`}
+              />
             </div>
 
-            <div className="mt-6 space-y-4">
-              <h4 className="font-medium">Resources by category</h4>
-              {categories.map((category) => {
-                const count = allResources.filter(
-                  (r) => r.category === category.name
-                ).length;
+            <div className="mt-8 space-y-4">
+              <h4 className="font-heading text-lg font-semibold">
+                Resources by category
+              </h4>
+              {categoriesByCount.map((category) => {
+                const count = usage.byCategory[category.name] ?? 0;
                 const percentage =
                   allResources.length > 0
                     ? (count / allResources.length) * 100
                     : 0;
 
                 return (
-                  <div key={category.id} className="space-y-1">
+                  <div key={category.id} className="space-y-1.5">
                     <div className="flex justify-between text-sm">
-                      <span>{category.name}</span>
-                      <span>
-                        {count} ({percentage.toFixed(1)}%)
+                      <span className="font-medium">{category.name}</span>
+                      <span className="text-muted-foreground">
+                        {count} · {percentage.toFixed(1)}%
                       </span>
                     </div>
-                    <div className="h-2 w-full rounded-full bg-muted">
+                    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
                       <div
                         className="h-2 rounded-full bg-primary transition-all"
                         style={{ width: `${percentage}%` }}
@@ -1504,7 +1757,7 @@ export default function AdminPage() {
         onResetBatchState={resetBatchState}
       />
 
-      {/* Delete confirmation modal */}
+      {/* ---------- Delete confirmation ---------- */}
       <SimpleKitModal
         open={!!deleteConfirm}
         onOpenChange={(o) => {
@@ -1513,23 +1766,26 @@ export default function AdminPage() {
       >
         <SimpleKitModalContent>
           <SimpleKitModalHeader>
-            <SimpleKitModalTitle className="text-destructive">
-              Confirm delete
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+              <Trash2 className="h-6 w-6 text-destructive" />
+            </div>
+            <SimpleKitModalTitle>
+              {deleteConfirm?.type === "bulk"
+                ? `Delete ${deleteConfirm.count} resources?`
+                : "Delete this resource?"}
             </SimpleKitModalTitle>
             <p className="mt-2 text-center text-sm text-muted-foreground">
-              {deleteConfirm?.type === "single"
-                ? "This can't be undone. The resource will be permanently deleted."
-                : `This can't be undone. ${deleteConfirm?.count} resources will be permanently deleted.`}
+              This can&apos;t be undone.
             </p>
           </SimpleKitModalHeader>
 
-          <SimpleKitModalBody>
-            {deleteConfirm?.type === "single" && deleteConfirm.resource && (
-              <div className="rounded-lg border bg-muted/30 p-4">
-                <h4 className="mb-2 font-medium">
+          {deleteConfirm?.type === "single" && deleteConfirm.resource && (
+            <SimpleKitModalBody>
+              <div className="rounded-xl border bg-muted/30 p-4">
+                <h4 className="mb-1 font-heading font-semibold">
                   {deleteConfirm.resource.name}
                 </h4>
-                <p className="mb-2 text-sm text-muted-foreground">
+                <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">
                   {deleteConfirm.resource.description}
                 </p>
                 <div className="flex gap-2">
@@ -1547,30 +1803,15 @@ export default function AdminPage() {
                   </Badge>
                 </div>
               </div>
-            )}
-
-            {deleteConfirm?.type === "bulk" && (
-              <div className="py-4 text-center">
-                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
-                  <Trash2 className="h-8 w-8 text-destructive" />
-                </div>
-                <p className="mb-2 text-lg font-medium">
-                  Delete {deleteConfirm.count} resources
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  You&apos;re about to permanently delete {deleteConfirm.count}{" "}
-                  selected resources.
-                </p>
-              </div>
-            )}
-          </SimpleKitModalBody>
+            </SimpleKitModalBody>
+          )}
 
           <SimpleKitModalFooter>
             <div className="flex w-full gap-2">
               <Button
                 variant="outline"
                 onClick={() => setDeleteConfirm(null)}
-                className="flex-1"
+                className="flex-1 rounded-full"
               >
                 Cancel
               </Button>
@@ -1578,8 +1819,9 @@ export default function AdminPage() {
                 variant="destructive"
                 onClick={handleConfirmedDelete}
                 disabled={bulkOperating}
-                className="flex-1"
+                className="flex-1 gap-2 rounded-full"
               >
+                {bulkOperating && <Loader2 className="h-4 w-4 animate-spin" />}
                 Delete{deleteConfirm?.type === "bulk" ? " all" : ""}
               </Button>
             </div>
